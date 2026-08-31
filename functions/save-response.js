@@ -5,10 +5,11 @@
 // Body: respondent_id, phone, event, and any of q1..q5 that are known so far,
 // plus completed ("true") on the final call.
 //
-// Writes to BOTH sheets:
+// Writes to BOTH sheets in one Apps Script call (see apps-script/Code.gs
+// action "save_response"):
 //   - Contacts sheet (keyed by phone): full record, includes name/phone.
 //   - Anonymous sheet (keyed by respondent_id): answers only, never phone/name.
-const { upsertRow } = require('./_lib/sheets.js');
+const { callAppsScript } = require('./_lib/apps-script-client.js');
 
 const ANSWER_FIELDS = ['q1', 'q2', 'q3', 'q4', 'q5'];
 
@@ -33,13 +34,8 @@ exports.handler = async function (context, event, callback) {
   const completedAt = completed === 'true' || completed === true ? new Date().toISOString() : undefined;
 
   try {
-    await upsertRow(context, context.CONTACTS_SHEET_ID, 'phone', {
+    await callAppsScript(context, 'save_response', {
       phone,
-      respondent_id: respondentId,
-      ...answers,
-      ...(completedAt ? { completed_at: completedAt } : {}),
-    });
-    await upsertRow(context, context.ANONYMOUS_SHEET_ID, 'respondent_id', {
       respondent_id: respondentId,
       event: eventName,
       ...answers,

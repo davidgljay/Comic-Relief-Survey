@@ -3,7 +3,7 @@
 // send time. Starts a Studio Flow execution for every consenting, not-yet-sent
 // contact for the given event, then marks them sent so retries don't double-send.
 const crypto = require('crypto');
-const { readRows, upsertRow } = require('./_lib/sheets.js');
+const { callAppsScript } = require('./_lib/apps-script-client.js');
 
 exports.handler = async function (context, event, callback) {
   const response = new Twilio.Response();
@@ -23,7 +23,7 @@ exports.handler = async function (context, event, callback) {
 
   let rows;
   try {
-    ({ rows } = await readRows(context, context.CONTACTS_SHEET_ID));
+    ({ rows } = await callAppsScript(context, 'list_rows', {}));
   } catch (err) {
     console.error(err);
     response.setStatusCode(500);
@@ -56,7 +56,7 @@ exports.handler = async function (context, event, callback) {
             respondent_id: respondentId,
           }),
         });
-      await upsertRow(context, context.CONTACTS_SHEET_ID, 'phone', {
+      await callAppsScript(context, 'upsert_contact', {
         phone: row.values.phone,
         respondent_id: respondentId,
         sent_at: new Date().toISOString(),

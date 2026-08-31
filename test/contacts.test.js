@@ -1,12 +1,12 @@
-const mockUpsertRow = jest.fn();
+const mockCallAppsScript = jest.fn();
 
-jest.mock('../functions/_lib/sheets.js', () => ({
-  upsertRow: (...args) => mockUpsertRow(...args),
+jest.mock('../functions/_lib/apps-script-client.js', () => ({
+  callAppsScript: (...args) => mockCallAppsScript(...args),
 }));
 
 const { handler } = require('../functions/contacts.js');
 
-const context = { CONTACTS_SHEET_ID: 'contacts-sheet' };
+const context = { APPS_SCRIPT_URL: 'https://script.google.com/x/exec', APPS_SCRIPT_SECRET: 'shh' };
 
 function invoke(event) {
   return new Promise((resolve, reject) => {
@@ -15,8 +15,8 @@ function invoke(event) {
 }
 
 beforeEach(() => {
-  mockUpsertRow.mockReset();
-  mockUpsertRow.mockResolvedValue(undefined);
+  mockCallAppsScript.mockReset();
+  mockCallAppsScript.mockResolvedValue({ ok: true });
 });
 
 describe('POST /contacts', () => {
@@ -25,14 +25,14 @@ describe('POST /contacts', () => {
 
     expect(response.statusCode).toBe(400);
     expect(response.body.error).toMatch(/E\.164/);
-    expect(mockUpsertRow).not.toHaveBeenCalled();
+    expect(mockCallAppsScript).not.toHaveBeenCalled();
   });
 
   it('rejects a missing name or event', async () => {
     const response = await invoke({ phone: '+15551112222', consent: true });
 
     expect(response.statusCode).toBe(400);
-    expect(mockUpsertRow).not.toHaveBeenCalled();
+    expect(mockCallAppsScript).not.toHaveBeenCalled();
   });
 
   it('rejects when consent is not explicitly true', async () => {
@@ -40,17 +40,16 @@ describe('POST /contacts', () => {
 
     expect(response.statusCode).toBe(400);
     expect(response.body.error).toMatch(/consent/);
-    expect(mockUpsertRow).not.toHaveBeenCalled();
+    expect(mockCallAppsScript).not.toHaveBeenCalled();
   });
 
   it('accepts consent passed as the string "true"', async () => {
     const response = await invoke({ phone: '+15551112222', name: 'Ada', event: 'Gala', consent: 'true' });
 
     expect(response.statusCode).toBe(201);
-    expect(mockUpsertRow).toHaveBeenCalledWith(
+    expect(mockCallAppsScript).toHaveBeenCalledWith(
       context,
-      'contacts-sheet',
-      'phone',
+      'upsert_contact',
       expect.objectContaining({ phone: '+15551112222', name: 'Ada', event: 'Gala', consent: 'true' })
     );
   });
@@ -60,13 +59,13 @@ describe('POST /contacts', () => {
 
     expect(response.statusCode).toBe(201);
     expect(response.body).toEqual({ ok: true });
-    const [, , , rowObj] = mockUpsertRow.mock.calls[0];
+    const [, , rowObj] = mockCallAppsScript.mock.calls[0];
     expect(rowObj.email).toBe('ada@example.com');
     expect(typeof rowObj.registered_at).toBe('string');
   });
 
-  it('returns a 500 if the sheet write fails', async () => {
-    mockUpsertRow.mockRejectedValue(new Error('boom'));
+  it('returns a 500 if the Apps Script call fails', async () => {
+    mockCallAppsScript.mockRejectedValue(new Error('boom'));
 
     const response = await invoke({ phone: '+15551112222', name: 'Ada', event: 'Gala', consent: true });
 

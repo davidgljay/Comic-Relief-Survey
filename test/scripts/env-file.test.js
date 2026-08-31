@@ -13,10 +13,10 @@ describe('parseEnvValues', () => {
   });
 
   it('strips matching surrounding quotes, leaving \\n escapes untouched', () => {
-    const text = 'GOOGLE_PRIVATE_KEY="-----BEGIN KEY-----\\nabc\\n-----END KEY-----\\n"\nPLAIN=\'unquoted-ish\'\n';
+    const text = 'MULTILINE_SECRET="-----BEGIN KEY-----\\nabc\\n-----END KEY-----\\n"\nPLAIN=\'unquoted-ish\'\n';
 
     const values = parseEnvValues(text);
-    expect(values.GOOGLE_PRIVATE_KEY).toBe('-----BEGIN KEY-----\\nabc\\n-----END KEY-----\\n');
+    expect(values.MULTILINE_SECRET).toBe('-----BEGIN KEY-----\\nabc\\n-----END KEY-----\\n');
     expect(values.PLAIN).toBe('unquoted-ish');
   });
 

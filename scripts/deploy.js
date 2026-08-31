@@ -25,14 +25,17 @@ const ENV_VARS = [
     help: 'Leave blank the first time you run this — the script creates the flow and fills this in for you on later runs.',
     optional: true,
   },
-  { key: 'CONTACTS_SHEET_ID', prompt: 'Contacts & Results Google Sheet ID', help: 'The id segment of the sheet URL: https://docs.google.com/spreadsheets/d/<THIS>/edit' },
-  { key: 'ANONYMOUS_SHEET_ID', prompt: 'Anonymous Results Google Sheet ID', help: 'Same as above, for the second (PII-free) sheet.' },
-  { key: 'GOOGLE_SERVICE_ACCOUNT_EMAIL', prompt: 'Google service account email', help: 'Google Cloud Console > IAM & Admin > Service Accounts.' },
   {
-    key: 'GOOGLE_PRIVATE_KEY',
-    prompt: 'Google service account private key',
-    help: 'The "private_key" field from the service account\'s downloaded JSON key file, \\n escapes and all.',
+    key: 'APPS_SCRIPT_URL',
+    prompt: 'Google Apps Script Web App URL',
+    help: 'Deploy apps-script/Code.gs as a Web App (Deploy > New deployment > Web app; Execute as: Me; Access: Anyone), then paste the /exec URL it gives you.',
+  },
+  {
+    key: 'APPS_SCRIPT_SECRET',
+    prompt: 'Shared secret for the Apps Script Web App',
+    help: 'Must match the SHARED_SECRET constant set at the top of apps-script/Code.gs. Leave blank to auto-generate one (then copy it into Code.gs).',
     secret: true,
+    autoGenerate: true,
   },
   {
     key: 'TRIGGER_SEND_SECRET',
@@ -120,16 +123,16 @@ async function syncStudioFlow(values, domain) {
 }
 
 async function watchForTestRow(values) {
-  const { readRows } = require('../functions/_lib/sheets.js');
+  const { callAppsScript } = require('../functions/_lib/apps-script-client.js');
   const context = {
-    GOOGLE_SERVICE_ACCOUNT_EMAIL: values.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-    GOOGLE_PRIVATE_KEY: values.GOOGLE_PRIVATE_KEY,
+    APPS_SCRIPT_URL: values.APPS_SCRIPT_URL,
+    APPS_SCRIPT_SECRET: values.APPS_SCRIPT_SECRET,
   };
 
   console.log('\nWatching the Contacts sheet for a new "test" row (checking every 5s, up to 5 minutes).');
   console.log(`Text ${values.TWILIO_PHONE_NUMBER} now if you haven't yet.`);
 
-  const { rows: before } = await readRows(context, values.CONTACTS_SHEET_ID);
+  const { rows: before } = await callAppsScript(context, 'list_rows', {});
   const seenPhones = new Set(before.map((r) => r.values.phone));
 
   const deadline = Date.now() + 5 * 60 * 1000;
@@ -137,7 +140,7 @@ async function watchForTestRow(values) {
     // eslint-disable-next-line no-await-in-loop
     await new Promise((resolve) => setTimeout(resolve, 5000));
     // eslint-disable-next-line no-await-in-loop
-    const { rows } = await readRows(context, values.CONTACTS_SHEET_ID);
+    const { rows } = await callAppsScript(context, 'list_rows', {});
     const newRow = rows.find((r) => r.values.event === 'test' && !seenPhones.has(r.values.phone));
     if (newRow) {
       console.log('\nFound it:', newRow.values);
@@ -173,8 +176,8 @@ async function main() {
     }
 
     const proceed = await rl.question(
-      `\nAbout to deploy to Twilio account ${values.ACCOUNT_SID} and write to Google Sheets ` +
-        `${values.CONTACTS_SHEET_ID} / ${values.ANONYMOUS_SHEET_ID}. Continue? (y/N) `
+      `\nAbout to deploy to Twilio account ${values.ACCOUNT_SID} and write via the Apps Script Web App ` +
+        `at ${values.APPS_SCRIPT_URL}. Continue? (y/N) `
     );
     if (proceed.trim().toLowerCase() !== 'y') {
       console.log('Aborted — no changes made to Twilio or Google Sheets.');

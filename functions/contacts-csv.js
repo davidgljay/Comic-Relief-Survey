@@ -3,7 +3,7 @@
 // Accepts either a multipart file field named "file", or a raw CSV string in
 // a "csv" field. Required columns: phone, name, event, consent. Optional: email, registered_at.
 const { parse } = require('csv-parse/sync');
-const { upsertRow } = require('./_lib/sheets.js');
+const { callAppsScript } = require('./_lib/apps-script-client.js');
 
 const E164 = /^\+[1-9]\d{1,14}$/;
 
@@ -42,7 +42,7 @@ exports.handler = async function (context, event, callback) {
       continue;
     }
     try {
-      await upsertRow(context, context.CONTACTS_SHEET_ID, 'phone', {
+      await callAppsScript(context, 'upsert_contact', {
         phone,
         name: row.name,
         email: row.email || '',

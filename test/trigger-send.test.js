@@ -1,9 +1,7 @@
-const mockReadRows = jest.fn();
-const mockUpsertRow = jest.fn();
+const mockCallAppsScript = jest.fn();
 
-jest.mock('../functions/_lib/sheets.js', () => ({
-  readRows: (...args) => mockReadRows(...args),
-  upsertRow: (...args) => mockUpsertRow(...args),
+jest.mock('../functions/_lib/apps-script-client.js', () => ({
+  callAppsScript: (...args) => mockCallAppsScript(...args),
 }));
 
 const { handler } = require('../functions/trigger-send.js');
@@ -12,7 +10,8 @@ const mockExecutionsCreate = jest.fn();
 
 function makeContext(overrides = {}) {
   return {
-    CONTACTS_SHEET_ID: 'contacts-sheet',
+    APPS_SCRIPT_URL: 'https://script.google.com/x/exec',
+    APPS_SCRIPT_SECRET: 'apps-script-shh',
     STUDIO_FLOW_SID: 'FWxxxx',
     TWILIO_PHONE_NUMBER: '+15550000000',
     TRIGGER_SEND_SECRET: 'shh',
@@ -34,11 +33,10 @@ function invoke(context, event) {
 }
 
 beforeEach(() => {
-  mockReadRows.mockReset();
-  mockUpsertRow.mockReset();
+  mockCallAppsScript.mockReset();
   mockExecutionsCreate.mockReset();
   mockExecutionsCreate.mockResolvedValue({});
-  mockUpsertRow.mockResolvedValue(undefined);
+  mockCallAppsScript.mockResolvedValue({ ok: true });
 });
 
 describe('POST /trigger-send', () => {
@@ -46,7 +44,7 @@ describe('POST /trigger-send', () => {
     const response = await invoke(makeContext(), { secret: 'wrong', event: 'Gala' });
 
     expect(response.statusCode).toBe(403);
-    expect(mockReadRows).not.toHaveBeenCalled();
+    expect(mockCallAppsScript).not.toHaveBeenCalled();
   });
 
   it('rejects requests missing the event name', async () => {
@@ -56,7 +54,7 @@ describe('POST /trigger-send', () => {
   });
 
   it('only starts executions for consenting, not-yet-sent contacts matching the event', async () => {
-    mockReadRows.mockResolvedValue({
+    mockCallAppsScript.mockResolvedValueOnce({
       rows: [
         { values: { phone: '+1', event: 'Gala', consent: 'true', sent_at: '' } },
         { values: { phone: '+2', event: 'Gala', consent: 'true', sent_at: '2026-01-01' } }, // already sent
@@ -74,16 +72,15 @@ describe('POST /trigger-send', () => {
       expect.objectContaining({ to: '+1', from: '+15550000000' })
     );
     // marks the contact as sent so a second call won't double-send
-    expect(mockUpsertRow).toHaveBeenCalledWith(
+    expect(mockCallAppsScript).toHaveBeenCalledWith(
       expect.anything(),
-      'contacts-sheet',
-      'phone',
+      'upsert_contact',
       expect.objectContaining({ phone: '+1', sent_at: expect.any(String) })
     );
   });
 
   it('collects per-contact failures without aborting the batch', async () => {
-    mockReadRows.mockResolvedValue({
+    mockCallAppsScript.mockResolvedValueOnce({
       rows: [
         { values: { phone: '+1', event: 'Gala', consent: 'true', sent_at: '' } },
         { values: { phone: '+2', event: 'Gala', consent: 'true', sent_at: '' } },
@@ -100,7 +97,7 @@ describe('POST /trigger-send', () => {
   });
 
   it('returns 500 if the contacts sheet cannot be read', async () => {
-    mockReadRows.mockRejectedValue(new Error('sheets down'));
+    mockCallAppsScript.mockRejectedValueOnce(new Error('apps script down'));
 
     const response = await invoke(makeContext(), { secret: 'shh', event: 'Gala' });
 

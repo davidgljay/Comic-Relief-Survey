@@ -1,12 +1,12 @@
-const mockUpsertRow = jest.fn();
+const mockCallAppsScript = jest.fn();
 
-jest.mock('../functions/_lib/sheets.js', () => ({
-  upsertRow: (...args) => mockUpsertRow(...args),
+jest.mock('../functions/_lib/apps-script-client.js', () => ({
+  callAppsScript: (...args) => mockCallAppsScript(...args),
 }));
 
 const { handler } = require('../functions/contacts-csv.js');
 
-const context = { CONTACTS_SHEET_ID: 'contacts-sheet' };
+const context = { APPS_SCRIPT_URL: 'https://script.google.com/x/exec', APPS_SCRIPT_SECRET: 'shh' };
 
 function invoke(event) {
   return new Promise((resolve, reject) => {
@@ -15,8 +15,8 @@ function invoke(event) {
 }
 
 beforeEach(() => {
-  mockUpsertRow.mockReset();
-  mockUpsertRow.mockResolvedValue(undefined);
+  mockCallAppsScript.mockReset();
+  mockCallAppsScript.mockResolvedValue({ ok: true });
 });
 
 describe('POST /contacts-csv', () => {
@@ -24,7 +24,7 @@ describe('POST /contacts-csv', () => {
     const response = await invoke({});
 
     expect(response.statusCode).toBe(400);
-    expect(mockUpsertRow).not.toHaveBeenCalled();
+    expect(mockCallAppsScript).not.toHaveBeenCalled();
   });
 
   it('rejects unparseable CSV', async () => {
@@ -48,11 +48,10 @@ describe('POST /contacts-csv', () => {
     expect(response.statusCode).toBe(200);
     expect(response.body.added).toBe(1);
     expect(response.body.skipped).toHaveLength(3);
-    expect(mockUpsertRow).toHaveBeenCalledTimes(1);
-    expect(mockUpsertRow).toHaveBeenCalledWith(
+    expect(mockCallAppsScript).toHaveBeenCalledTimes(1);
+    expect(mockCallAppsScript).toHaveBeenCalledWith(
       context,
-      'contacts-sheet',
-      'phone',
+      'upsert_contact',
       expect.objectContaining({ phone: '+15551112222', name: 'Ada', event: 'Gala' })
     );
   });
@@ -66,8 +65,8 @@ describe('POST /contacts-csv', () => {
   });
 
   it('records per-row failures without aborting the whole batch', async () => {
-    mockUpsertRow
-      .mockResolvedValueOnce(undefined)
+    mockCallAppsScript
+      .mockResolvedValueOnce({ ok: true })
       .mockRejectedValueOnce(new Error('boom'));
 
     const csv = [

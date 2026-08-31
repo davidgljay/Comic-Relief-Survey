@@ -32,10 +32,9 @@ function renderEnvFile(varDefs, values) {
     const value = values[def.key] ?? '';
     lines.push(`# ${def.prompt}`);
     if (def.help) lines.push(`# ${def.help}`);
-    // Values are expected to be single-line (e.g. GOOGLE_PRIVATE_KEY is stored
-    // with literal \n escapes, not real newlines — functions/_lib/sheets.js
-    // unescapes it at read time). Quote only to protect leading/trailing
-    // whitespace; no JSON escaping, so quoting stays a plain, reversible wrap.
+    // Values are expected to be single-line. Quote only to protect
+    // leading/trailing whitespace; no JSON escaping, so quoting stays a
+    // plain, reversible wrap.
     const needsQuotes = /^\s|\s$/.test(value);
     lines.push(`${def.key}=${needsQuotes ? `"${value}"` : value}`);
     lines.push('');
