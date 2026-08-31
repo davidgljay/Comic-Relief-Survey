@@ -5,6 +5,9 @@ jest.mock('../functions/_lib/apps-script-client.js', () => ({
 }));
 
 const { handler } = require('../functions/save-response.js');
+const { silenceConsoleError } = require('./helpers/silence-console-error.js');
+
+silenceConsoleError();
 
 const context = { APPS_SCRIPT_URL: 'https://script.google.com/x/exec', APPS_SCRIPT_SECRET: 'shh' };
 

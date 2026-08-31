@@ -42,7 +42,7 @@ const ENV_VARS = [
   {
     key: 'APPS_SCRIPT_URL',
     prompt: 'Google Apps Script Web App URL',
-    help: 'Deploy apps-script/Code.gs as a Web App (Deploy > New deployment > Web app; Execute as: Me; Access: Anyone), then paste the /exec URL it gives you.',
+    help: 'Full walkthrough in docs/twilio-setup.md §3. Briefly: paste apps-script/Code.gs into a Sheet\'s Extensions > Apps Script, fill in CONFIG, Deploy > New deployment > Web app (Execute as: Me; Access: Anyone) — you\'ll hit a one-time "Google hasn\'t verified this app" screen, click Advanced > Go to [project] (unsafe) > Allow, that\'s expected for your own script — then paste the /exec URL here.',
   },
   {
     key: 'APPS_SCRIPT_SECRET',
@@ -65,6 +65,7 @@ const REQUIRED_KEYS = ENV_VARS.filter((v) => !v.optional).map((v) => v.key);
 async function promptEnvVars(rl) {
   const existing = fs.existsSync(ENV_PATH) ? parseEnvValues(fs.readFileSync(ENV_PATH, 'utf8')) : {};
   const values = { ...existing };
+  const generated = [];
 
   console.log('\n--- Configure .env (written locally, never committed) ---');
   for (const def of ENV_VARS) {
@@ -80,10 +81,36 @@ async function promptEnvVars(rl) {
     // eslint-disable-next-line no-await-in-loop
     const answer = await rl.question('> ');
     values[def.key] = resolveValue(def, existing[def.key], answer);
+    if (def.autoGenerate && !existing[def.key] && !answer.trim()) {
+      generated.push(def);
+    }
   }
 
   fs.writeFileSync(ENV_PATH, renderEnvFile(ENV_VARS, values));
   console.log(`\nWrote ${ENV_PATH}`);
+
+  if (generated.length > 0) {
+    console.log('\n--- Auto-generated values (also saved in .env, shown here so you can copy them now) ---');
+    for (const def of generated) {
+      console.log(`\n${def.prompt}:`);
+      console.log(`  ${values[def.key]}`);
+    }
+    if (generated.some((def) => def.key === 'APPS_SCRIPT_SECRET')) {
+      console.log(
+        '\nAPPS_SCRIPT_SECRET was just generated above — paste it into the SHARED_SECRET constant at the top of ' +
+          'apps-script/Code.gs (in the Apps Script editor), then Deploy > Manage deployments > edit (pencil) > ' +
+          'New version, before continuing. The Web App will reject every call with "invalid secret" until that ' +
+          'matches.'
+      );
+    }
+    if (generated.some((def) => def.key === 'TRIGGER_SEND_SECRET')) {
+      console.log(
+        '\nTRIGGER_SEND_SECRET was just generated above — you\'ll need it later as the ?secret= value when you ' +
+          'set up the external cron job that calls /trigger-send (see docs/twilio-setup.md §5).'
+      );
+    }
+  }
+
   return values;
 }
 

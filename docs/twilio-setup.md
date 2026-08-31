@@ -84,19 +84,46 @@ in whoever deploys the script.
      event, registered_at, sent_at, respondent_id, q1, q2, q3, q4, q5, completed_at`
    - **Anonymous Results** — header row in `Sheet1`: `respondent_id, event, q1, q2,
      q3, q4, q5, completed_at`
-   - Copy each sheet's ID from its URL (`.../spreadsheets/d/<ID>/edit`).
-2. Open either sheet's **Extensions > Apps Script**, delete the placeholder code, and
-   paste in the contents of [`apps-script/Code.gs`](../apps-script/Code.gs).
-3. At the top of the pasted script, fill in the `CONFIG` object: a `SHARED_SECRET` you
-   choose (or reuse the value `npm run deploy` generates for `APPS_SCRIPT_SECRET` —
-   they must match either way), `CONTACTS_SHEET_ID`, and `ANONYMOUS_SHEET_ID` from
-   step 1.
-4. **Deploy > New deployment > Web app.** Execute as: **Me**. Who has access:
-   **Anyone**. Deploy, then copy the `/exec` URL it gives you — that's
-   `APPS_SCRIPT_URL`.
-5. Whenever you edit `Code.gs` later, **Deploy > Manage deployments > edit (pencil) >
-   New version** — the `/exec` URL stays the same, but it keeps running the old code
-   until you cut a new version.
+   - Copy each sheet's ID from its URL: `docs.google.com/spreadsheets/d/`**`<this
+     part>`**`/edit`.
+2. Open the **Contacts & Results** sheet (doesn't matter which one, but pick one).
+   Top menu: **Extensions > Apps Script**. This opens a new tab at script.google.com
+   with a blank project containing one file, `Code.gs`, with a placeholder
+   `function myFunction() {}`.
+3. Click into that placeholder code, **select all** (Cmd/Ctrl+A) and delete it. Open
+   [`apps-script/Code.gs`](../apps-script/Code.gs) from this repo, select all its
+   contents, copy, and paste into the now-empty Apps Script editor.
+4. Near the top of the pasted code, fill in the `CONFIG` object's three placeholder
+   values:
+   - `SHARED_SECRET`: a value you choose, or the value `npm run deploy` auto-generates
+     for `APPS_SCRIPT_SECRET` if you run that first (see §2's note on ordering) —
+     either way, this must be **identical** to whatever ends up in `.env` as
+     `APPS_SCRIPT_SECRET`, or every call gets rejected with `"invalid secret"`.
+   - `CONTACTS_SHEET_ID` and `ANONYMOUS_SHEET_ID`: from step 1.
+5. Save the project: the floppy-disk icon in the toolbar, or Cmd/Ctrl+S. If prompted
+   to name the project, any name works (e.g. "Comic Relief Survey Sheets API").
+6. Click the blue **Deploy** button (top right) **> New deployment**.
+7. Next to "Select type," click the **gear/cog icon** and choose **Web app** (it's not
+   selected by default).
+8. Fill in the Web app form:
+   - Description: optional, e.g. "v1".
+   - Execute as: **Me** (your own Google account — this is what makes the script run
+     with your Sheets access, not the caller's).
+   - Who has access: **Anyone**.
+9. Click **Deploy**.
+10. **First deploy only:** Google will interrupt with an "Authorize access" prompt.
+    Click **Authorize access** > choose your Google account > you'll land on a
+    "Google hasn't verified this app" warning screen. This is expected — it's *your*
+    private script, not a publicly published one, and there is no way to skip this
+    for a self-authored script. Click **Advanced** (small text, easy to miss) > **Go
+    to [project name] (unsafe)** > **Allow**. You'll then return to the deploy dialog.
+11. The deploy dialog now shows a **Web app URL** ending in `/exec`. Click **Copy**,
+    then **Done**. That URL is `APPS_SCRIPT_URL`.
+12. Whenever you edit `Code.gs` later (e.g. pasting in a different `SHARED_SECRET`),
+    the `/exec` URL does **not** automatically pick up the change — you must cut a new
+    version: **Deploy > Manage deployments** > click the **pencil/edit icon** next to
+    the existing deployment > Version dropdown > **New version** > **Deploy**. Until
+    you do, it keeps serving the old code.
 
 David never needs Google Cloud Console access, and never holds a service-account
 credential — only whoever runs this one-time Apps Script setup needs edit access to

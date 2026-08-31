@@ -5,6 +5,9 @@ jest.mock('../functions/_lib/apps-script-client.js', () => ({
 }));
 
 const { handler } = require('../functions/trigger-send.js');
+const { silenceConsoleError } = require('./helpers/silence-console-error.js');
+
+silenceConsoleError();
 
 const mockExecutionsCreate = jest.fn();
 
