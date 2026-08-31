@@ -13,7 +13,7 @@ These have the longest lead time — start them first, before scheduling a pilot
   collaborator to build the flow, but the account itself — billing, credentials — belongs
   to Comic Relief from day one.
 - **The `ACCOUNT_SID`/`AUTH_TOKEN` used by `npm run deploy` need full account access** —
-  they run `twilio serverless:deploy` and create/update the Studio Flow via the REST
+  they run `twilio-run deploy` and create/update the Studio Flow via the REST
   API, and Twilio has no Restricted API Key grant that covers both together. There's no
   way to hand these out more narrowly; the mitigation is procedural, not technical —
   rotate this Auth Token once David's collaborator access is revoked (§8).
@@ -49,11 +49,12 @@ secrets just need to match.)
    - Runs `npm test`.
    - Asks for a final confirmation before touching the real Twilio account or calling
      the Apps Script Web App, showing which account/URL it's about to act on.
-   - Runs `twilio serverless:deploy`, passing `ACCOUNT_SID`/`AUTH_TOKEN` from `.env`
-     to it directly as `TWILIO_ACCOUNT_SID`/`TWILIO_AUTH_TOKEN` (no separate
-     `twilio login` needed), reads the real deployed domain out of its output, and
-     substitutes it into `studio-flow.json` in memory (the tracked file on disk is
-     untouched — it keeps the `REPLACE_WITH_DEPLOYED_DOMAIN` placeholder).
+   - Runs `twilio-run deploy` (the Serverless Toolkit's own standalone CLI — not the
+     full Twilio CLI, which isn't required here), passing `ACCOUNT_SID`/`AUTH_TOKEN`
+     from `.env` directly via `--username`/`--password` (no `twilio login` needed),
+     reads the real deployed domain out of its output, and substitutes it into
+     `studio-flow.json` in memory (the tracked file on disk is untouched — it keeps
+     the `REPLACE_WITH_DEPLOYED_DOMAIN` placeholder).
    - Creates the Studio Flow via the API on first run (or updates it in place on
      later runs), publishes it, and writes the resulting `STUDIO_FLOW_SID` back into
      `.env`.

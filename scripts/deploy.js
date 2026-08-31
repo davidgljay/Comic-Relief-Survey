@@ -16,7 +16,7 @@ const ENV_PATH = path.join(ROOT, '.env');
 const FLOW_PATH = path.join(ROOT, 'studio-flow.json');
 
 // ACCOUNT_SID/AUTH_TOKEN need FULL account access — they're used both to run
-// `twilio serverless:deploy` (create/update the Serverless Service, Functions,
+// `twilio-run deploy` (create/update the Serverless Service, Functions,
 // Assets, Environment, Build, and Deployment) and to create/update the Studio
 // Flow via the REST API. Twilio has no Restricted API Key permission grant
 // that cleanly covers both of those together, so there's no narrower scope to
@@ -30,19 +30,31 @@ const FLOW_PATH = path.join(ROOT, 'studio-flow.json');
 // Comic Relief-owned account, and this Auth Token should be rotated once
 // David's collaborator access is revoked at handoff.
 const ENV_VARS = [
-  { key: 'ACCOUNT_SID', prompt: 'Twilio Account SID', help: 'Twilio Console home, or Account > API keys & tokens. Starts with AC. Needs full account access — see note above.' },
-  { key: 'AUTH_TOKEN', prompt: 'Twilio Auth Token', help: 'Same console page as Account SID — click "view" to reveal it. Needs full account access — see note above.', secret: true },
-  { key: 'TWILIO_PHONE_NUMBER', prompt: 'Twilio phone number (E.164)', help: 'Twilio Console > Phone Numbers > Manage > Active Numbers, e.g. +15551234567.' },
+  {
+    key: 'ACCOUNT_SID',
+    prompt: 'Twilio Account SID',
+    help: 'Twilio Console home page, top left — NOT the "API keys & tokens" page (that page\'s API Key SIDs start with SK and won\'t work here). Starts with AC. Needs full account access — see note above.',
+    validate: (v) => (/^AC[0-9a-f]{32}$/i.test(v) ? null : 'must start with "AC" followed by 32 hex characters (this is the Account SID, not an API Key SID)'),
+  },
+  { key: 'AUTH_TOKEN', prompt: 'Twilio Auth Token', help: 'Twilio Console home page, next to Account SID — click "view" to reveal it. Needs full account access — see note above.', secret: true },
+  {
+    key: 'TWILIO_PHONE_NUMBER',
+    prompt: 'Twilio phone number (E.164)',
+    help: 'Twilio Console > Phone Numbers > Manage > Active Numbers, e.g. +15551234567.',
+    validate: (v) => (/^\+[1-9]\d{1,14}$/.test(v) ? null : 'must be E.164 format, e.g. +15551234567'),
+  },
   {
     key: 'STUDIO_FLOW_SID',
     prompt: 'Studio Flow SID',
     help: 'Leave blank the first time you run this — the script creates the flow and fills this in for you on later runs.',
     optional: true,
+    validate: (v) => (/^FW[0-9a-f]{32}$/i.test(v) ? null : 'must start with "FW" followed by 32 hex characters'),
   },
   {
     key: 'APPS_SCRIPT_URL',
     prompt: 'Google Apps Script Web App URL',
     help: 'Full walkthrough in docs/twilio-setup.md §3. Briefly: paste apps-script/Code.gs into a Sheet\'s Extensions > Apps Script, fill in CONFIG, Deploy > New deployment > Web app (Execute as: Me; Access: Anyone) — you\'ll hit a one-time "Google hasn\'t verified this app" screen, click Advanced > Go to [project] (unsafe) > Allow, that\'s expected for your own script — then paste the /exec URL here.',
+    validate: (v) => (/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(v) ? null : 'must be a Web App URL ending in /exec, e.g. https://script.google.com/macros/s/.../exec'),
   },
   {
     key: 'APPS_SCRIPT_SECRET',
@@ -78,9 +90,20 @@ async function promptEnvVars(rl) {
           : '';
     console.log(`\n${def.prompt}${currentNote}`);
     if (def.help) console.log(`  ${def.help}`);
-    // eslint-disable-next-line no-await-in-loop
-    const answer = await rl.question('> ');
-    values[def.key] = resolveValue(def, existing[def.key], answer);
+
+    let answer;
+    let resolved;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      // eslint-disable-next-line no-await-in-loop
+      answer = await rl.question('> ');
+      resolved = resolveValue(def, existing[def.key], answer);
+      const problem = resolved && def.validate ? def.validate(resolved) : null;
+      if (!problem) break;
+      console.log(`  Doesn't look right: ${problem}. Try again (or leave blank to skip).`);
+      if (def.optional && !answer.trim()) break;
+    }
+    values[def.key] = resolved;
     if (def.autoGenerate && !existing[def.key] && !answer.trim()) {
       generated.push(def);
     }
@@ -114,13 +137,9 @@ async function promptEnvVars(rl) {
   return values;
 }
 
-function run(cmd, args, extraEnv) {
+function run(cmd, args) {
   return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, {
-      cwd: ROOT,
-      shell: process.platform === 'win32',
-      env: { ...process.env, ...extraEnv },
-    });
+    const child = spawn(cmd, args, { cwd: ROOT, shell: process.platform === 'win32' });
     let output = '';
     child.stdout.on('data', (d) => {
       process.stdout.write(d);
@@ -136,13 +155,23 @@ function run(cmd, args, extraEnv) {
 }
 
 async function deployFunctions(values) {
-  console.log('\n--- Deploying Twilio Functions (npx twilio serverless:deploy) ---\n');
-  // Passed explicitly rather than relying on a prior `twilio login` session —
-  // these are the credentials from .env, not read from any Twilio CLI profile.
-  const output = await run('npx', ['twilio', 'serverless:deploy'], {
-    TWILIO_ACCOUNT_SID: values.ACCOUNT_SID,
-    TWILIO_AUTH_TOKEN: values.AUTH_TOKEN,
-  });
+  console.log('\n--- Deploying Twilio Functions (npx twilio-run deploy) ---\n');
+  // `twilio-run` (the Serverless Toolkit, in devDependencies) has its own
+  // standalone CLI — this is NOT the full Twilio CLI's `serverless:deploy`
+  // plugin command, which isn't installed here and `npx twilio ...` would
+  // otherwise silently try (and fail) to fetch the unrelated `twilio` npm
+  // package (the Node SDK library, which has no CLI at all). --username/
+  // --password are twilio-run's own documented flags (`twilio-run deploy
+  // --help`) for passing credentials explicitly instead of relying on a
+  // separately-configured Twilio CLI profile.
+  const output = await run('npx', [
+    'twilio-run',
+    'deploy',
+    '--username',
+    values.ACCOUNT_SID,
+    '--password',
+    values.AUTH_TOKEN,
+  ]);
   const domain = extractDomain(output);
   if (!domain) {
     throw new Error('Could not find the deployed domain in the deploy output — check it above and re-run.');
