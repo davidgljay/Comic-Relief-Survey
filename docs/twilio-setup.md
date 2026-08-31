@@ -29,6 +29,12 @@ These have the longest lead time — start them first, before scheduling a pilot
 
 ## 2. Deploying the survey
 
+Do the Google Sheets + Apps Script setup in §3 first, so you have a real
+`APPS_SCRIPT_URL` to give the deploy script below. (Or run the deploy script first,
+let it auto-generate `APPS_SCRIPT_SECRET`, then paste that value into `Code.gs`'s
+`CONFIG` afterward and redeploy the Apps Script — either order works, since the two
+secrets just need to match.)
+
 1. `npm install`
 2. `npm run deploy` — this is the whole process, interactively:
    - Prompts for each `.env` value one at a time, printing where to find it (the
@@ -36,8 +42,8 @@ These have the longest lead time — start them first, before scheduling a pilot
      Leave `STUDIO_FLOW_SID` blank the first time; the script fills it in for you.
      Leave `TRIGGER_SEND_SECRET` blank to have it generate one.
    - Runs `npm test`.
-   - Asks for a final confirmation before touching the real Twilio account or Google
-     Sheets, showing which account/sheet IDs it's about to act on.
+   - Asks for a final confirmation before touching the real Twilio account or calling
+     the Apps Script Web App, showing which account/URL it's about to act on.
    - Runs `twilio serverless:deploy`, reads the real deployed domain out of its
      output, and substitutes it into `studio-flow.json` in memory (the tracked file
      on disk is untouched — it keeps the `REPLACE_WITH_DEPLOYED_DOMAIN` placeholder).
@@ -61,17 +67,35 @@ it. Question order, branching, and retry/skip/timeout logic live in
 
 ## 3. Google Sheets
 
-- Create two Sheets, **owned by Comic Relief** (not David):
-  1. **Contacts & Results** — header row: `phone, name, email, consent, event,
-     registered_at, sent_at, respondent_id, q1, q2, q3, q4, q5, completed_at`
-  2. **Anonymous Results** — header row: `respondent_id, event, q1, q2, q3, q4, q5,
-     completed_at`
-- Create a Google Cloud project + service account (also Comic Relief-owned), enable the
-  Sheets API, and share **both** Sheets with the service account's email as an Editor.
-- Put the service account's email and private key into `.env` /the deployed Function's
-  environment variables. Never commit the real `.env`.
-- David should only ever be shared the **Anonymous Results** sheet. Comic Relief keeps
-  sole ownership of the Contacts & Results sheet, since it holds PII.
+Sheets are written via a small Google Apps Script Web App
+([`apps-script/Code.gs`](../apps-script/Code.gs)) instead of the Sheets REST API — no
+Google Cloud project, service account, or private key required, and auth is implicit
+in whoever deploys the script.
+
+1. In Comic Relief's Google Drive (not David's), create two Sheets:
+   - **Contacts & Results** — header row in `Sheet1`: `phone, name, email, consent,
+     event, registered_at, sent_at, respondent_id, q1, q2, q3, q4, q5, completed_at`
+   - **Anonymous Results** — header row in `Sheet1`: `respondent_id, event, q1, q2,
+     q3, q4, q5, completed_at`
+   - Copy each sheet's ID from its URL (`.../spreadsheets/d/<ID>/edit`).
+2. Open either sheet's **Extensions > Apps Script**, delete the placeholder code, and
+   paste in the contents of [`apps-script/Code.gs`](../apps-script/Code.gs).
+3. At the top of the pasted script, fill in the `CONFIG` object: a `SHARED_SECRET` you
+   choose (or reuse the value `npm run deploy` generates for `APPS_SCRIPT_SECRET` —
+   they must match either way), `CONTACTS_SHEET_ID`, and `ANONYMOUS_SHEET_ID` from
+   step 1.
+4. **Deploy > New deployment > Web app.** Execute as: **Me**. Who has access:
+   **Anyone**. Deploy, then copy the `/exec` URL it gives you — that's
+   `APPS_SCRIPT_URL`.
+5. Whenever you edit `Code.gs` later, **Deploy > Manage deployments > edit (pencil) >
+   New version** — the `/exec` URL stays the same, but it keeps running the old code
+   until you cut a new version.
+
+David never needs Google Cloud Console access, and never holds a service-account
+credential — only whoever runs this one-time Apps Script setup needs edit access to
+the Sheets, and that should be someone at Comic Relief. David is still shared the
+**Anonymous Results** sheet directly (view access is enough) to do the actual survey
+analysis — see handoff, §8.
 
 ## 4. Collecting contacts
 
@@ -139,11 +163,14 @@ it. Question order, branching, and retry/skip/timeout logic live in
 
 ## 8. Handoff
 
-Once the above is verified with dummy data:
+David never holds Twilio account credentials, a Google service-account key, or Google
+Cloud Console access at any point — the only thing to revoke is Twilio console
+collaborator access. Once the above is verified with dummy data:
 
-1. Comic Relief revokes David's access to the Twilio console.
+1. Comic Relief revokes David's collaborator access to the Twilio console.
 2. Comic Relief revokes David's access to their Zapier workspace, if one was used for
    the registration-to-`/contacts` step.
-3. David retains access only to the **Anonymous Results** Google Sheet going forward.
-4. Keep an exported copy of `studio-flow.json` (already in this repo) as Comic Relief's
-   audit trail of what was deployed.
+3. David keeps (or is newly given) view access to the **Anonymous Results** Google
+   Sheet for analysis — that's the only Google access David has, ever.
+4. Keep an exported copy of `studio-flow.json` and `apps-script/Code.gs` (both already
+   in this repo) as Comic Relief's audit trail of what was deployed.
