@@ -15,9 +15,23 @@ const ROOT = path.join(__dirname, '..');
 const ENV_PATH = path.join(ROOT, '.env');
 const FLOW_PATH = path.join(ROOT, 'studio-flow.json');
 
+// ACCOUNT_SID/AUTH_TOKEN need FULL account access — they're used both to run
+// `twilio serverless:deploy` (create/update the Serverless Service, Functions,
+// Assets, Environment, Build, and Deployment) and to create/update the Studio
+// Flow via the REST API. Twilio has no Restricted API Key permission grant
+// that cleanly covers both of those together, so there's no narrower scope to
+// hand out here — whatever credential is used, it has full access to the
+// account. (A Standard API Key SID+Secret pair carries that same full scope
+// and could replace the Auth Token below for independent revocability, but
+// it authenticates as a *different* username/password pair — API Key SID as
+// username, API Key Secret as password, not paired with the Account SID — so
+// it isn't a drop-in swap for this field; this script only supports Account
+// SID + Auth Token today.) Per docs/twilio-setup.md §8: this should be a
+// Comic Relief-owned account, and this Auth Token should be rotated once
+// David's collaborator access is revoked at handoff.
 const ENV_VARS = [
-  { key: 'ACCOUNT_SID', prompt: 'Twilio Account SID', help: 'Twilio Console home, or Account > API keys & tokens. Starts with AC.' },
-  { key: 'AUTH_TOKEN', prompt: 'Twilio Auth Token', help: 'Same console page as Account SID — click "view" to reveal it.', secret: true },
+  { key: 'ACCOUNT_SID', prompt: 'Twilio Account SID', help: 'Twilio Console home, or Account > API keys & tokens. Starts with AC. Needs full account access — see note above.' },
+  { key: 'AUTH_TOKEN', prompt: 'Twilio Auth Token', help: 'Same console page as Account SID — click "view" to reveal it. Needs full account access — see note above.', secret: true },
   { key: 'TWILIO_PHONE_NUMBER', prompt: 'Twilio phone number (E.164)', help: 'Twilio Console > Phone Numbers > Manage > Active Numbers, e.g. +15551234567.' },
   {
     key: 'STUDIO_FLOW_SID',
@@ -73,9 +87,13 @@ async function promptEnvVars(rl) {
   return values;
 }
 
-function run(cmd, args) {
+function run(cmd, args, extraEnv) {
   return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, { cwd: ROOT, shell: process.platform === 'win32' });
+    const child = spawn(cmd, args, {
+      cwd: ROOT,
+      shell: process.platform === 'win32',
+      env: { ...process.env, ...extraEnv },
+    });
     let output = '';
     child.stdout.on('data', (d) => {
       process.stdout.write(d);
@@ -90,9 +108,14 @@ function run(cmd, args) {
   });
 }
 
-async function deployFunctions() {
+async function deployFunctions(values) {
   console.log('\n--- Deploying Twilio Functions (npx twilio serverless:deploy) ---\n');
-  const output = await run('npx', ['twilio', 'serverless:deploy']);
+  // Passed explicitly rather than relying on a prior `twilio login` session —
+  // these are the credentials from .env, not read from any Twilio CLI profile.
+  const output = await run('npx', ['twilio', 'serverless:deploy'], {
+    TWILIO_ACCOUNT_SID: values.ACCOUNT_SID,
+    TWILIO_AUTH_TOKEN: values.AUTH_TOKEN,
+  });
   const domain = extractDomain(output);
   if (!domain) {
     throw new Error('Could not find the deployed domain in the deploy output — check it above and re-run.');
@@ -184,14 +207,14 @@ async function main() {
       return;
     }
 
-    const domain = await deployFunctions();
+    const domain = await deployFunctions(values);
     const { sid, created } = await syncStudioFlow(values, domain);
 
     if (created || values.STUDIO_FLOW_SID !== sid) {
       values.STUDIO_FLOW_SID = sid;
       fs.writeFileSync(ENV_PATH, renderEnvFile(ENV_VARS, values));
       console.log('\n--- Redeploying Functions so trigger-send.js has the new STUDIO_FLOW_SID ---');
-      await deployFunctions();
+      await deployFunctions(values);
     }
 
     console.log('\n=== Deployed ===');
