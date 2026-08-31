@@ -8,6 +8,10 @@
         {
           "event": "incomingRequest",
           "next": "Q1_Send"
+        },
+        {
+          "event": "incomingMessage",
+          "next": "Q1_Send"
         }
       ],
       "properties": {
@@ -31,7 +35,7 @@
           "x": 0,
           "y": 300
         },
-        "body": "Hi {{trigger.parameters.name}}! We're trying to learn whether events like these are a helpful tool to address child poverty, and would like to ask you 3-5 quick questions. We'd appreciate it if you could take the time to answer. We won't text you again once the survey is complete. You can also text STOP at any time to opt out.\n\nHow likely are you to discuss the work being done by an organization present at this event with people in your life? Reply 1 for Very Likely .... 5 for Very Unlikely",
+        "body": "Hi {{trigger.parameters.name | default: 'there'}}! We're trying to learn whether events like these are a helpful tool to address child poverty, and would like to ask you 3-5 quick questions. We'd appreciate it if you could take the time to answer. We won't text you again once the survey is complete. You can also text STOP at any time to opt out.\n\nHow likely are you to discuss the work being done by an organization present at this event with people in your life? Reply 1 for Very Likely .... 5 for Very Unlikely",
         "timeout": "86400"
       }
     },
@@ -133,15 +137,15 @@
         "parameters": [
           {
             "key": "respondent_id",
-            "value": "{{trigger.parameters.respondent_id}}"
+            "value": "{{trigger.parameters.respondent_id | default: trigger.message.MessageSid}}"
           },
           {
             "key": "phone",
-            "value": "{{trigger.parameters.phone}}"
+            "value": "{{trigger.parameters.phone | default: trigger.message.From}}"
           },
           {
             "key": "event",
-            "value": "{{trigger.parameters.event}}"
+            "value": "{{trigger.parameters.event | default: 'test'}}"
           },
           {
             "key": "q1",
@@ -174,15 +178,15 @@
         "parameters": [
           {
             "key": "respondent_id",
-            "value": "{{trigger.parameters.respondent_id}}"
+            "value": "{{trigger.parameters.respondent_id | default: trigger.message.MessageSid}}"
           },
           {
             "key": "phone",
-            "value": "{{trigger.parameters.phone}}"
+            "value": "{{trigger.parameters.phone | default: trigger.message.From}}"
           },
           {
             "key": "event",
-            "value": "{{trigger.parameters.event}}"
+            "value": "{{trigger.parameters.event | default: 'test'}}"
           },
           {
             "key": "q1",
@@ -330,15 +334,15 @@
         "parameters": [
           {
             "key": "respondent_id",
-            "value": "{{trigger.parameters.respondent_id}}"
+            "value": "{{trigger.parameters.respondent_id | default: trigger.message.MessageSid}}"
           },
           {
             "key": "phone",
-            "value": "{{trigger.parameters.phone}}"
+            "value": "{{trigger.parameters.phone | default: trigger.message.From}}"
           },
           {
             "key": "event",
-            "value": "{{trigger.parameters.event}}"
+            "value": "{{trigger.parameters.event | default: 'test'}}"
           },
           {
             "key": "q2",
@@ -371,15 +375,15 @@
         "parameters": [
           {
             "key": "respondent_id",
-            "value": "{{trigger.parameters.respondent_id}}"
+            "value": "{{trigger.parameters.respondent_id | default: trigger.message.MessageSid}}"
           },
           {
             "key": "phone",
-            "value": "{{trigger.parameters.phone}}"
+            "value": "{{trigger.parameters.phone | default: trigger.message.From}}"
           },
           {
             "key": "event",
-            "value": "{{trigger.parameters.event}}"
+            "value": "{{trigger.parameters.event | default: 'test'}}"
           },
           {
             "key": "q2",
@@ -527,15 +531,15 @@
         "parameters": [
           {
             "key": "respondent_id",
-            "value": "{{trigger.parameters.respondent_id}}"
+            "value": "{{trigger.parameters.respondent_id | default: trigger.message.MessageSid}}"
           },
           {
             "key": "phone",
-            "value": "{{trigger.parameters.phone}}"
+            "value": "{{trigger.parameters.phone | default: trigger.message.From}}"
           },
           {
             "key": "event",
-            "value": "{{trigger.parameters.event}}"
+            "value": "{{trigger.parameters.event | default: 'test'}}"
           },
           {
             "key": "q3",
@@ -568,15 +572,15 @@
         "parameters": [
           {
             "key": "respondent_id",
-            "value": "{{trigger.parameters.respondent_id}}"
+            "value": "{{trigger.parameters.respondent_id | default: trigger.message.MessageSid}}"
           },
           {
             "key": "phone",
-            "value": "{{trigger.parameters.phone}}"
+            "value": "{{trigger.parameters.phone | default: trigger.message.From}}"
           },
           {
             "key": "event",
-            "value": "{{trigger.parameters.event}}"
+            "value": "{{trigger.parameters.event | default: 'test'}}"
           },
           {
             "key": "q3",
@@ -752,15 +756,15 @@
         "parameters": [
           {
             "key": "respondent_id",
-            "value": "{{trigger.parameters.respondent_id}}"
+            "value": "{{trigger.parameters.respondent_id | default: trigger.message.MessageSid}}"
           },
           {
             "key": "phone",
-            "value": "{{trigger.parameters.phone}}"
+            "value": "{{trigger.parameters.phone | default: trigger.message.From}}"
           },
           {
             "key": "event",
-            "value": "{{trigger.parameters.event}}"
+            "value": "{{trigger.parameters.event | default: 'test'}}"
           },
           {
             "key": "q4",
@@ -793,15 +797,15 @@
         "parameters": [
           {
             "key": "respondent_id",
-            "value": "{{trigger.parameters.respondent_id}}"
+            "value": "{{trigger.parameters.respondent_id | default: trigger.message.MessageSid}}"
           },
           {
             "key": "phone",
-            "value": "{{trigger.parameters.phone}}"
+            "value": "{{trigger.parameters.phone | default: trigger.message.From}}"
           },
           {
             "key": "event",
-            "value": "{{trigger.parameters.event}}"
+            "value": "{{trigger.parameters.event | default: 'test'}}"
           },
           {
             "key": "q4",
@@ -903,15 +907,15 @@
         "parameters": [
           {
             "key": "respondent_id",
-            "value": "{{trigger.parameters.respondent_id}}"
+            "value": "{{trigger.parameters.respondent_id | default: trigger.message.MessageSid}}"
           },
           {
             "key": "phone",
-            "value": "{{trigger.parameters.phone}}"
+            "value": "{{trigger.parameters.phone | default: trigger.message.From}}"
           },
           {
             "key": "event",
-            "value": "{{trigger.parameters.event}}"
+            "value": "{{trigger.parameters.event | default: 'test'}}"
           },
           {
             "key": "q5",
@@ -944,15 +948,15 @@
         "parameters": [
           {
             "key": "respondent_id",
-            "value": "{{trigger.parameters.respondent_id}}"
+            "value": "{{trigger.parameters.respondent_id | default: trigger.message.MessageSid}}"
           },
           {
             "key": "phone",
-            "value": "{{trigger.parameters.phone}}"
+            "value": "{{trigger.parameters.phone | default: trigger.message.From}}"
           },
           {
             "key": "event",
-            "value": "{{trigger.parameters.event}}"
+            "value": "{{trigger.parameters.event | default: 'test'}}"
           },
           {
             "key": "completed",

@@ -30,20 +30,33 @@ These have the longest lead time — start them first, before scheduling a pilot
 ## 2. Deploying the survey
 
 1. `npm install`
-2. Copy `.env.example` to `.env` and fill in real values (Twilio credentials, Studio
-   flow SID once created, the two Google Sheet IDs, the Google service-account
-   credentials, and a random `TRIGGER_SEND_SECRET`).
-3. `npx twilio serverless:deploy` — deploys `functions/*.js` under Comic Relief's Twilio
-   account. Note the deployed domain it prints (e.g. `comic-relief-survey-1234-dev.twil.io`).
-4. Open `studio-flow.json`, find-and-replace every occurrence of
-   `REPLACE_WITH_DEPLOYED_DOMAIN.twil.io` with the real deployed domain from step 3.
-5. In the Twilio Console, create a new Studio Flow, and use the flow editor's **Import
-   from JSON** option (⋮ menu) to import `studio-flow.json`. Publish it, then copy its
-   Flow SID into `STUDIO_FLOW_SID` in `.env`, and re-run `twilio serverless:deploy` so
-   `trigger-send.js` has the right SID.
-   - After import, open each "Make HTTP Request" widget once in the UI — Studio
-     sometimes needs a manual save on imported widgets to fully register them, even
-     though the URL is already correct.
+2. `npm run deploy` — this is the whole process, interactively:
+   - Prompts for each `.env` value one at a time, printing where to find it (the
+     Twilio/Google console page) and defaulting to whatever's already in `.env`.
+     Leave `STUDIO_FLOW_SID` blank the first time; the script fills it in for you.
+     Leave `TRIGGER_SEND_SECRET` blank to have it generate one.
+   - Runs `npm test`.
+   - Asks for a final confirmation before touching the real Twilio account or Google
+     Sheets, showing which account/sheet IDs it's about to act on.
+   - Runs `twilio serverless:deploy`, reads the real deployed domain out of its
+     output, and substitutes it into `studio-flow.json` in memory (the tracked file
+     on disk is untouched — it keeps the `REPLACE_WITH_DEPLOYED_DOMAIN` placeholder).
+   - Creates the Studio Flow via the API on first run (or updates it in place on
+     later runs), publishes it, and writes the resulting `STUDIO_FLOW_SID` back into
+     `.env`.
+   - Redeploys the Functions once more if the Flow SID changed, so `trigger-send.js`
+     has the right one.
+   - Offers to watch the Contacts sheet for the row a live test text produces (see
+     §7).
+   - Re-run any time with `npm run deploy` — it's idempotent (updates the existing
+     Flow rather than creating a new one) as long as `.env` still has
+     `STUDIO_FLOW_SID` set. Flags: `--skip-env` reuses the existing `.env` without
+     re-prompting; `--skip-tests` skips the `npm test` gate.
+
+To change the survey's wording, edit the question/message text in
+`scripts/generate-studio-flow.js` (not `studio-flow.json` directly — it's generated
+and gets overwritten), run `npm run generate:flow` to rebuild `studio-flow.json`, then
+`npm run deploy` to push it.
 
 ## 3. Google Sheets
 
@@ -96,11 +109,29 @@ These have the longest lead time — start them first, before scheduling a pilot
   share?") is open text and could contain a name or other identifying detail a
   respondent volunteers. It's still written to the Anonymous Results sheet as-is —
   Comic Relief should spot-check Q5 responses before that sheet is shared onward.
+- **Texting the number also starts the survey.** The flow's trigger fires on both a
+  REST-started execution (the real `/trigger-send` path) and a plain inbound text —
+  this is deliberate, so anyone can test the whole flow by just texting the number,
+  with no API call needed (see §7). Text-triggered runs use `respondent_id` = the
+  inbound message SID, `phone`/`name` from the message itself (name defaults to
+  "there"), and always save under `event="test"`, so they can't be mistaken for real
+  event data. **Decide before a number goes live for a real campaign** whether to
+  leave this on (harmless — it just produces more `event="test"` rows if a stranger
+  texts in) or remove the `incomingMessage` trigger from `studio-flow.json` /
+  `scripts/generate-studio-flow.js` for a stricter "only REST-started executions run
+  the survey" policy.
 
 ## 7. Test before any real data flows
 
+- **Fastest check**: after `npm run deploy`, just text the Twilio number from your
+  own phone — the survey starts immediately (see §6). Reply through a few branches,
+  then check both Google Sheets for an `event="test"` row. `npm run deploy` can watch
+  the Contacts sheet for you and confirm the row lands.
 - Walk every branch (each valid path, invalid-then-retry, invalid-twice-skip, timeout,
   STOP) with dummy contacts and real test phone numbers.
+- Also exercise the real `/trigger-send` path at least once with a dummy contact added
+  via `/contacts`, not just the text-in shortcut — it's the one that runs for real
+  events.
 - Confirm the Anonymous Results sheet never contains a phone number or name in any
   column, including Q5.
 - Confirm `/trigger-send` doesn't double-send when called twice for the same event.

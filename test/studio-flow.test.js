@@ -14,6 +14,21 @@ describe('studio-flow.json', () => {
     expect(event.next).toBe('Q1_Send');
   });
 
+  it('also starts on incomingMessage, so texting the number is enough to manually test it', () => {
+    const trigger = flow.states.find((s) => s.name === flow.initial_state);
+    const event = trigger.transitions.find((t) => t.event === 'incomingMessage');
+    expect(event).toBeDefined();
+    expect(event.next).toBe('Q1_Send');
+  });
+
+  it('falls back to message-derived values when trigger.parameters is empty (the text-in path)', () => {
+    const q1Save = flow.states.find((s) => s.name === 'Q1_Save');
+    const params = Object.fromEntries(q1Save.properties.parameters.map((p) => [p.key, p.value]));
+    expect(params.respondent_id).toContain('trigger.message.MessageSid');
+    expect(params.phone).toContain('trigger.message.From');
+    expect(params.event).toContain("default: 'test'");
+  });
+
   it('gates Question 4 on Question 3 being 1 or 2', () => {
     const gate = flow.states.find((s) => s.name === 'Split_Q3Gate');
     expect(gate.properties.input).toContain('q3');
