@@ -25,3 +25,16 @@ npx twilio serverless:deploy
 ```
 
 Then import `studio-flow.json` into a new Studio Flow in Comic Relief's Twilio console.
+
+## Tests
+
+```bash
+npm test
+```
+
+Unit tests (Jest) cover the four Functions' request validation and branching logic
+against a mocked Google Sheets client, plus a structural validator for
+`studio-flow.json` (no dangling/unwired/unreachable states, gates wired correctly,
+every save posts to `/save-response` with no PII in the URL). These don't call live
+Twilio or Google APIs — see [`docs/twilio-setup.md`](docs/twilio-setup.md) §7 for the
+manual end-to-end test pass required before any real contact data is loaded.
