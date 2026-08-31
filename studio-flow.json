@@ -1,0 +1,983 @@
+{
+  "description": "Comic Relief post-event SMS survey",
+  "states": [
+    {
+      "name": "Trigger",
+      "type": "trigger",
+      "transitions": [
+        {
+          "event": "incomingRequest",
+          "next": "Q1_Send"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 0,
+          "y": 150
+        }
+      }
+    },
+    {
+      "name": "Q1_Send",
+      "type": "send-and-wait-for-reply",
+      "transitions": [
+        {
+          "event": "incomingMessage",
+          "next": "Q1_Validate"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 0,
+          "y": 300
+        },
+        "body": "Hi {{trigger.parameters.name}}! We're trying to learn whether events like these are a helpful tool to address child poverty, and would like to ask you 3-5 quick questions. We'd appreciate it if you could take the time to answer. We won't text you again once the survey is complete. You can also text STOP at any time to opt out.\n\nHow likely are you to discuss the work being done by an organization present at this event with people in your life? Reply 1 for Very Likely .... 5 for Very Unlikely",
+        "timeout": "86400"
+      }
+    },
+    {
+      "name": "Q1_Validate",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "event": "noMatch",
+          "next": "Q1_Reprompt"
+        },
+        {
+          "event": "match",
+          "next": "Q1_Save",
+          "conditions": [
+            {
+              "friendly_name": "If value matches_regex ^[1-5]$",
+              "type": "matches_regex",
+              "value": "^[1-5]$"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 0,
+          "y": 450
+        },
+        "input": "{{widgets.Q1_Send.inbound.Body}}"
+      }
+    },
+    {
+      "name": "Q1_Reprompt",
+      "type": "send-and-wait-for-reply",
+      "transitions": [
+        {
+          "event": "incomingMessage",
+          "next": "Q1_ValidateRetry"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 300,
+          "y": 600
+        },
+        "body": "Sorry, I didn't quite catch that — please reply with just a number from 1 to 5.",
+        "timeout": "86400"
+      }
+    },
+    {
+      "name": "Q1_ValidateRetry",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "event": "noMatch",
+          "next": "Q1_Skip"
+        },
+        {
+          "event": "match",
+          "next": "Q1_SaveRetry",
+          "conditions": [
+            {
+              "friendly_name": "If value matches_regex ^[1-5]$",
+              "type": "matches_regex",
+              "value": "^[1-5]$"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 300,
+          "y": 750
+        },
+        "input": "{{widgets.Q1_Reprompt.inbound.Body}}"
+      }
+    },
+    {
+      "name": "Q1_Save",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "event": "success",
+          "next": "Q2_Send"
+        },
+        {
+          "event": "failed",
+          "next": "Q2_Send"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 0,
+          "y": 900
+        },
+        "url": "https://REPLACE_WITH_DEPLOYED_DOMAIN.twil.io/save-response",
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "parameters": [
+          {
+            "key": "respondent_id",
+            "value": "{{trigger.parameters.respondent_id}}"
+          },
+          {
+            "key": "phone",
+            "value": "{{trigger.parameters.phone}}"
+          },
+          {
+            "key": "event",
+            "value": "{{trigger.parameters.event}}"
+          },
+          {
+            "key": "q1",
+            "value": "{{widgets.Q1_Send.inbound.Body}}"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Q1_SaveRetry",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "event": "success",
+          "next": "Q2_Send"
+        },
+        {
+          "event": "failed",
+          "next": "Q2_Send"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 300,
+          "y": 1050
+        },
+        "url": "https://REPLACE_WITH_DEPLOYED_DOMAIN.twil.io/save-response",
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "parameters": [
+          {
+            "key": "respondent_id",
+            "value": "{{trigger.parameters.respondent_id}}"
+          },
+          {
+            "key": "phone",
+            "value": "{{trigger.parameters.phone}}"
+          },
+          {
+            "key": "event",
+            "value": "{{trigger.parameters.event}}"
+          },
+          {
+            "key": "q1",
+            "value": "{{widgets.Q1_Reprompt.inbound.Body}}"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Q1_Skip",
+      "type": "send-message",
+      "transitions": [
+        {
+          "event": "sent",
+          "next": "Q2_Send"
+        },
+        {
+          "event": "failed",
+          "next": "Q2_Send"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 600,
+          "y": 1200
+        },
+        "body": "No worries — I'll skip that one.",
+        "to": "{{contact.channel.address}}",
+        "from": "{{flow.channel.address}}"
+      }
+    },
+    {
+      "name": "Q2_Send",
+      "type": "send-and-wait-for-reply",
+      "transitions": [
+        {
+          "event": "incomingMessage",
+          "next": "Q2_Validate"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 1200,
+          "y": 1350
+        },
+        "body": "How likely are you to volunteer with or donate to an organization that was present at this event in the next three months? Reply 1 for Very Likely .... 5 for Very Unlikely",
+        "timeout": "86400"
+      }
+    },
+    {
+      "name": "Q2_Validate",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "event": "noMatch",
+          "next": "Q2_Reprompt"
+        },
+        {
+          "event": "match",
+          "next": "Q2_Save",
+          "conditions": [
+            {
+              "friendly_name": "If value matches_regex ^[1-5]$",
+              "type": "matches_regex",
+              "value": "^[1-5]$"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 1200,
+          "y": 1500
+        },
+        "input": "{{widgets.Q2_Send.inbound.Body}}"
+      }
+    },
+    {
+      "name": "Q2_Reprompt",
+      "type": "send-and-wait-for-reply",
+      "transitions": [
+        {
+          "event": "incomingMessage",
+          "next": "Q2_ValidateRetry"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 1500,
+          "y": 1650
+        },
+        "body": "Sorry, I didn't quite catch that — please reply with just a number from 1 to 5.",
+        "timeout": "86400"
+      }
+    },
+    {
+      "name": "Q2_ValidateRetry",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "event": "noMatch",
+          "next": "Q2_Skip"
+        },
+        {
+          "event": "match",
+          "next": "Q2_SaveRetry",
+          "conditions": [
+            {
+              "friendly_name": "If value matches_regex ^[1-5]$",
+              "type": "matches_regex",
+              "value": "^[1-5]$"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 1500,
+          "y": 1800
+        },
+        "input": "{{widgets.Q2_Reprompt.inbound.Body}}"
+      }
+    },
+    {
+      "name": "Q2_Save",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "event": "success",
+          "next": "Q3_Send"
+        },
+        {
+          "event": "failed",
+          "next": "Q3_Send"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 1200,
+          "y": 1950
+        },
+        "url": "https://REPLACE_WITH_DEPLOYED_DOMAIN.twil.io/save-response",
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "parameters": [
+          {
+            "key": "respondent_id",
+            "value": "{{trigger.parameters.respondent_id}}"
+          },
+          {
+            "key": "phone",
+            "value": "{{trigger.parameters.phone}}"
+          },
+          {
+            "key": "event",
+            "value": "{{trigger.parameters.event}}"
+          },
+          {
+            "key": "q2",
+            "value": "{{widgets.Q2_Send.inbound.Body}}"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Q2_SaveRetry",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "event": "success",
+          "next": "Q3_Send"
+        },
+        {
+          "event": "failed",
+          "next": "Q3_Send"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 1500,
+          "y": 2100
+        },
+        "url": "https://REPLACE_WITH_DEPLOYED_DOMAIN.twil.io/save-response",
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "parameters": [
+          {
+            "key": "respondent_id",
+            "value": "{{trigger.parameters.respondent_id}}"
+          },
+          {
+            "key": "phone",
+            "value": "{{trigger.parameters.phone}}"
+          },
+          {
+            "key": "event",
+            "value": "{{trigger.parameters.event}}"
+          },
+          {
+            "key": "q2",
+            "value": "{{widgets.Q2_Reprompt.inbound.Body}}"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Q2_Skip",
+      "type": "send-message",
+      "transitions": [
+        {
+          "event": "sent",
+          "next": "Q3_Send"
+        },
+        {
+          "event": "failed",
+          "next": "Q3_Send"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 1800,
+          "y": 2250
+        },
+        "body": "No worries — I'll skip that one.",
+        "to": "{{contact.channel.address}}",
+        "from": "{{flow.channel.address}}"
+      }
+    },
+    {
+      "name": "Q3_Send",
+      "type": "send-and-wait-for-reply",
+      "transitions": [
+        {
+          "event": "incomingMessage",
+          "next": "Q3_Validate"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 2400,
+          "y": 2400
+        },
+        "body": "How likely are you to have a followup conversation with someone that you met at this event? Reply 1 for Very Likely .... 5 for Very Unlikely",
+        "timeout": "86400"
+      }
+    },
+    {
+      "name": "Q3_Validate",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "event": "noMatch",
+          "next": "Q3_Reprompt"
+        },
+        {
+          "event": "match",
+          "next": "Q3_Save",
+          "conditions": [
+            {
+              "friendly_name": "If value matches_regex ^[1-5]$",
+              "type": "matches_regex",
+              "value": "^[1-5]$"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 2400,
+          "y": 2550
+        },
+        "input": "{{widgets.Q3_Send.inbound.Body}}"
+      }
+    },
+    {
+      "name": "Q3_Reprompt",
+      "type": "send-and-wait-for-reply",
+      "transitions": [
+        {
+          "event": "incomingMessage",
+          "next": "Q3_ValidateRetry"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 2700,
+          "y": 2700
+        },
+        "body": "Sorry, I didn't quite catch that — please reply with just a number from 1 to 5.",
+        "timeout": "86400"
+      }
+    },
+    {
+      "name": "Q3_ValidateRetry",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "event": "noMatch",
+          "next": "Q3_Skip"
+        },
+        {
+          "event": "match",
+          "next": "Q3_SaveRetry",
+          "conditions": [
+            {
+              "friendly_name": "If value matches_regex ^[1-5]$",
+              "type": "matches_regex",
+              "value": "^[1-5]$"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 2700,
+          "y": 2850
+        },
+        "input": "{{widgets.Q3_Reprompt.inbound.Body}}"
+      }
+    },
+    {
+      "name": "Q3_Save",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "event": "success",
+          "next": "Split_Q3Gate"
+        },
+        {
+          "event": "failed",
+          "next": "Split_Q3Gate"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 2400,
+          "y": 3000
+        },
+        "url": "https://REPLACE_WITH_DEPLOYED_DOMAIN.twil.io/save-response",
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "parameters": [
+          {
+            "key": "respondent_id",
+            "value": "{{trigger.parameters.respondent_id}}"
+          },
+          {
+            "key": "phone",
+            "value": "{{trigger.parameters.phone}}"
+          },
+          {
+            "key": "event",
+            "value": "{{trigger.parameters.event}}"
+          },
+          {
+            "key": "q3",
+            "value": "{{widgets.Q3_Send.inbound.Body}}"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Q3_SaveRetry",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "event": "success",
+          "next": "Split_Q3Gate"
+        },
+        {
+          "event": "failed",
+          "next": "Split_Q3Gate"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 2700,
+          "y": 3150
+        },
+        "url": "https://REPLACE_WITH_DEPLOYED_DOMAIN.twil.io/save-response",
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "parameters": [
+          {
+            "key": "respondent_id",
+            "value": "{{trigger.parameters.respondent_id}}"
+          },
+          {
+            "key": "phone",
+            "value": "{{trigger.parameters.phone}}"
+          },
+          {
+            "key": "event",
+            "value": "{{trigger.parameters.event}}"
+          },
+          {
+            "key": "q3",
+            "value": "{{widgets.Q3_Reprompt.inbound.Body}}"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Q3_Skip",
+      "type": "send-message",
+      "transitions": [
+        {
+          "event": "sent",
+          "next": "Split_Q3Gate"
+        },
+        {
+          "event": "failed",
+          "next": "Split_Q3Gate"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 3000,
+          "y": 3300
+        },
+        "body": "No worries — I'll skip that one.",
+        "to": "{{contact.channel.address}}",
+        "from": "{{flow.channel.address}}"
+      }
+    },
+    {
+      "name": "Split_Q3Gate",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "event": "noMatch",
+          "next": "Split_Q1Gate"
+        },
+        {
+          "event": "match",
+          "next": "Q4_Send",
+          "conditions": [
+            {
+              "friendly_name": "If value matches_regex ^[1-2]$",
+              "type": "matches_regex",
+              "value": "^[1-2]$"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 2400,
+          "y": 3450
+        },
+        "input": "{{widgets.Q3_Save.parsed.q3}}{{widgets.Q3_SaveRetry.parsed.q3}}"
+      }
+    },
+    {
+      "name": "Q4_Send",
+      "type": "send-and-wait-for-reply",
+      "transitions": [
+        {
+          "event": "incomingMessage",
+          "next": "Q4_Validate"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 3600,
+          "y": 3600
+        },
+        "body": "How likely would you have been to meet or get to know this person if not for tonight's event? Reply 1 for Very Likely .... 5 for Very Unlikely",
+        "timeout": "86400"
+      }
+    },
+    {
+      "name": "Q4_Validate",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "event": "noMatch",
+          "next": "Q4_Reprompt"
+        },
+        {
+          "event": "match",
+          "next": "Q4_Save",
+          "conditions": [
+            {
+              "friendly_name": "If value matches_regex ^[1-5]$",
+              "type": "matches_regex",
+              "value": "^[1-5]$"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 3600,
+          "y": 3750
+        },
+        "input": "{{widgets.Q4_Send.inbound.Body}}"
+      }
+    },
+    {
+      "name": "Q4_Reprompt",
+      "type": "send-and-wait-for-reply",
+      "transitions": [
+        {
+          "event": "incomingMessage",
+          "next": "Q4_ValidateRetry"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 3900,
+          "y": 3900
+        },
+        "body": "Sorry, I didn't quite catch that — please reply with just a number from 1 to 5.",
+        "timeout": "86400"
+      }
+    },
+    {
+      "name": "Q4_ValidateRetry",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "event": "noMatch",
+          "next": "Q4_Skip"
+        },
+        {
+          "event": "match",
+          "next": "Q4_SaveRetry",
+          "conditions": [
+            {
+              "friendly_name": "If value matches_regex ^[1-5]$",
+              "type": "matches_regex",
+              "value": "^[1-5]$"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 3900,
+          "y": 4050
+        },
+        "input": "{{widgets.Q4_Reprompt.inbound.Body}}"
+      }
+    },
+    {
+      "name": "Q4_Save",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "event": "success",
+          "next": "Split_Q1Gate"
+        },
+        {
+          "event": "failed",
+          "next": "Split_Q1Gate"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 3600,
+          "y": 4200
+        },
+        "url": "https://REPLACE_WITH_DEPLOYED_DOMAIN.twil.io/save-response",
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "parameters": [
+          {
+            "key": "respondent_id",
+            "value": "{{trigger.parameters.respondent_id}}"
+          },
+          {
+            "key": "phone",
+            "value": "{{trigger.parameters.phone}}"
+          },
+          {
+            "key": "event",
+            "value": "{{trigger.parameters.event}}"
+          },
+          {
+            "key": "q4",
+            "value": "{{widgets.Q4_Send.inbound.Body}}"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Q4_SaveRetry",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "event": "success",
+          "next": "Split_Q1Gate"
+        },
+        {
+          "event": "failed",
+          "next": "Split_Q1Gate"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 3900,
+          "y": 4350
+        },
+        "url": "https://REPLACE_WITH_DEPLOYED_DOMAIN.twil.io/save-response",
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "parameters": [
+          {
+            "key": "respondent_id",
+            "value": "{{trigger.parameters.respondent_id}}"
+          },
+          {
+            "key": "phone",
+            "value": "{{trigger.parameters.phone}}"
+          },
+          {
+            "key": "event",
+            "value": "{{trigger.parameters.event}}"
+          },
+          {
+            "key": "q4",
+            "value": "{{widgets.Q4_Reprompt.inbound.Body}}"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Q4_Skip",
+      "type": "send-message",
+      "transitions": [
+        {
+          "event": "sent",
+          "next": "Split_Q1Gate"
+        },
+        {
+          "event": "failed",
+          "next": "Split_Q1Gate"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 4200,
+          "y": 4500
+        },
+        "body": "No worries — I'll skip that one.",
+        "to": "{{contact.channel.address}}",
+        "from": "{{flow.channel.address}}"
+      }
+    },
+    {
+      "name": "Split_Q1Gate",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "event": "noMatch",
+          "next": "Closing_Save"
+        },
+        {
+          "event": "match",
+          "next": "Q5_Send",
+          "conditions": [
+            {
+              "friendly_name": "If value matches_regex ^[1-2]$",
+              "type": "matches_regex",
+              "value": "^[1-2]$"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 4800,
+          "y": 4650
+        },
+        "input": "{{widgets.Q1_Save.parsed.q1}}{{widgets.Q1_SaveRetry.parsed.q1}}"
+      }
+    },
+    {
+      "name": "Q5_Send",
+      "type": "send-and-wait-for-reply",
+      "transitions": [
+        {
+          "event": "incomingMessage",
+          "next": "Q5_Save"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 6000,
+          "y": 4800
+        },
+        "body": "When you tell others about this event, what moment are you most likely to share? (Feel free to describe it in your own words.)",
+        "timeout": "86400"
+      }
+    },
+    {
+      "name": "Q5_Save",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "event": "success",
+          "next": "Closing_Save"
+        },
+        {
+          "event": "failed",
+          "next": "Closing_Save"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 6000,
+          "y": 4950
+        },
+        "url": "https://REPLACE_WITH_DEPLOYED_DOMAIN.twil.io/save-response",
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "parameters": [
+          {
+            "key": "respondent_id",
+            "value": "{{trigger.parameters.respondent_id}}"
+          },
+          {
+            "key": "phone",
+            "value": "{{trigger.parameters.phone}}"
+          },
+          {
+            "key": "event",
+            "value": "{{trigger.parameters.event}}"
+          },
+          {
+            "key": "q5",
+            "value": "{{widgets.Q5_Send.inbound.Body}}"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Closing_Save",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "event": "success",
+          "next": "Closing_Message"
+        },
+        {
+          "event": "failed",
+          "next": "Closing_Message"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 7200,
+          "y": 5100
+        },
+        "url": "https://REPLACE_WITH_DEPLOYED_DOMAIN.twil.io/save-response",
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "parameters": [
+          {
+            "key": "respondent_id",
+            "value": "{{trigger.parameters.respondent_id}}"
+          },
+          {
+            "key": "phone",
+            "value": "{{trigger.parameters.phone}}"
+          },
+          {
+            "key": "event",
+            "value": "{{trigger.parameters.event}}"
+          },
+          {
+            "key": "completed",
+            "value": "true"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Closing_Message",
+      "type": "send-message",
+      "transitions": [],
+      "properties": {
+        "offset": {
+          "x": 7200,
+          "y": 5250
+        },
+        "body": "That's it! Thanks so much for taking the time to complete this survey and for attending.",
+        "to": "{{contact.channel.address}}",
+        "from": "{{flow.channel.address}}"
+      }
+    }
+  ],
+  "initial_state": "Trigger",
+  "flags": {
+    "allow_concurrent_calls": true
+  }
+}
