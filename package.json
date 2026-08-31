@@ -1,0 +1,16 @@
+{
+  "name": "comic-relief-sms-survey",
+  "version": "1.0.0",
+  "description": "Twilio Functions backend for the Comic Relief post-event SMS survey",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "googleapis": "^140.0.0",
+    "csv-parse": "^5.5.6"
+  },
+  "devDependencies": {
+    "twilio-run": "^5.0.1"
+  }
+}
