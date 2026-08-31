@@ -34,21 +34,39 @@ These have the longest lead time — start them first, before scheduling a pilot
 
 ## 2. Deploying the survey
 
-Do the Google Sheets + Apps Script setup in §3 first, so you have a real
-`APPS_SCRIPT_URL` to give the deploy script below. (Or run the deploy script first,
-let it auto-generate `APPS_SCRIPT_SECRET`, then paste that value into `Code.gs`'s
-`CONFIG` afterward and redeploy the Apps Script — either order works, since the two
-secrets just need to match.)
+Required order, since `npm run deploy` needs both Sheet IDs and a live Apps Script
+URL to even get through its prompts: create the two Sheets first (§3 step 1), then do
+the rest of §3 (paste `Code.gs` in, fill in `CONFIG` with a placeholder
+`SHARED_SECRET` for now, deploy it as a Web App, copy the `/exec` URL) — *then* run
+the deploy script below.
+
+Expect the **first** `npm run deploy` run to fail partway through, at "Initializing
+Google Sheet headers" — that's expected, not a bug. It auto-generates
+`APPS_SCRIPT_SECRET` and prints it before that step, but `Code.gs` is still running
+with the placeholder secret you put in during §3, so the call is rejected with
+`"invalid secret"`. Copy the printed secret into `Code.gs`'s `CONFIG.SHARED_SECRET`,
+cut a new deployment version (§3 step 12), then re-run `npm run deploy --skip-env`
+(reuses the `.env` it already wrote, no re-prompting) to finish.
 
 1. `npm install`
 2. `npm run deploy` — this is the whole process, interactively:
    - Prompts for each `.env` value one at a time, printing where to find it (the
      Twilio/Google console page) and defaulting to whatever's already in `.env`.
      Leave `STUDIO_FLOW_SID` blank the first time; the script fills it in for you.
-     Leave `TRIGGER_SEND_SECRET` blank to have it generate one.
+     Sheet URLs can be pasted in full — it extracts the ID itself.
+   - `APPS_SCRIPT_SECRET` and `TRIGGER_SEND_SECRET` are **not** prompted for at all —
+     the script generates them automatically (reusing whatever's already in `.env` on
+     a later run) and prints both values afterward so you can copy them if needed:
+     `APPS_SCRIPT_SECRET` has to be pasted into `Code.gs`'s `CONFIG` (see §3 step 4);
+     `TRIGGER_SEND_SECRET` is needed later for the cron job (§5).
    - Runs `npm test`.
-   - Asks for a final confirmation before touching the real Twilio account or calling
-     the Apps Script Web App, showing which account/URL it's about to act on.
+   - Asks for a final confirmation before touching the real Twilio account, Sheets, or
+     Apps Script, showing which account/URL it's about to act on.
+   - Calls the Apps Script Web App's `init_headers` action, which writes the header
+     row into each Sheet if it's currently blank (§3's headers, so you never have to
+     type them in by hand) — a no-op if they're already there, and it refuses to
+     touch a sheet whose row 1 has different content rather than risk overwriting
+     real data.
    - Runs `twilio-run deploy` (the Serverless Toolkit's own standalone CLI — not the
      full Twilio CLI, which isn't required here), passing `ACCOUNT_SID`/`AUTH_TOKEN`
      from `.env` directly via `--username`/`--password` (no `twilio login` needed),
@@ -63,9 +81,9 @@ secrets just need to match.)
    - Offers to watch the Contacts sheet for the row a live test text produces (see
      §7).
    - Re-run any time with `npm run deploy` — it's idempotent (updates the existing
-     Flow rather than creating a new one) as long as `.env` still has
-     `STUDIO_FLOW_SID` set. Flags: `--skip-env` reuses the existing `.env` without
-     re-prompting; `--skip-tests` skips the `npm test` gate.
+     Flow rather than creating a new one, and skips already-initialized headers) as
+     long as `.env` still has the same values. Flags: `--skip-env` reuses the
+     existing `.env` without re-prompting; `--skip-tests` skips the `npm test` gate.
 
 To change the survey's wording, edit [`survey-content.yaml`](../survey-content.yaml)
 (not `studio-flow.json` directly — it's generated and gets overwritten), run
@@ -80,13 +98,14 @@ Sheets are written via a small Google Apps Script Web App
 Google Cloud project, service account, or private key required, and auth is implicit
 in whoever deploys the script.
 
-1. In Comic Relief's Google Drive (not David's), create two Sheets:
-   - **Contacts & Results** — header row in `Sheet1`: `phone, name, email, consent,
-     event, registered_at, sent_at, respondent_id, q1, q2, q3, q4, q5, completed_at`
-   - **Anonymous Results** — header row in `Sheet1`: `respondent_id, event, q1, q2,
-     q3, q4, q5, completed_at`
+1. In Comic Relief's Google Drive (not David's), create two **blank** Sheets — leave
+   `Sheet1` empty, don't type in headers by hand:
+   - **Contacts & Results** — will hold name/phone/consent plus every answer.
+   - **Anonymous Results** — will hold answers only, no name/phone.
    - Copy each sheet's ID from its URL: `docs.google.com/spreadsheets/d/`**`<this
-     part>`**`/edit`.
+     part>`**`/edit`. `npm run deploy` (§2) inserts the correct header row into each
+     automatically once Apps Script is deployed (steps below) — that's what its
+     `init_headers` call does.
 2. Open the **Contacts & Results** sheet (doesn't matter which one, but pick one).
    Top menu: **Extensions > Apps Script**. This opens a new tab at script.google.com
    with a blank project containing one file, `Code.gs`, with a placeholder
@@ -96,10 +115,10 @@ in whoever deploys the script.
    contents, copy, and paste into the now-empty Apps Script editor.
 4. Near the top of the pasted code, fill in the `CONFIG` object's three placeholder
    values:
-   - `SHARED_SECRET`: a value you choose, or the value `npm run deploy` auto-generates
-     for `APPS_SCRIPT_SECRET` if you run that first (see §2's note on ordering) —
-     either way, this must be **identical** to whatever ends up in `.env` as
-     `APPS_SCRIPT_SECRET`, or every call gets rejected with `"invalid secret"`.
+   - `SHARED_SECRET`: leave the placeholder as-is for now, or put in anything — you'll
+     replace it with `npm run deploy`'s auto-generated value in a moment (§2). This
+     must eventually be **identical** to `.env`'s `APPS_SCRIPT_SECRET`, or every call
+     gets rejected with `"invalid secret"`.
    - `CONTACTS_SHEET_ID` and `ANONYMOUS_SHEET_ID`: from step 1.
 5. Save the project: the floppy-disk icon in the toolbar, or Cmd/Ctrl+S. If prompted
    to name the project, any name works (e.g. "Comic Relief Survey Sheets API").

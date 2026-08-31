@@ -47,6 +47,28 @@ describe('STUDIO_FLOW_SID validation', () => {
   });
 });
 
+describe('CONTACTS_SHEET_ID / ANONYMOUS_SHEET_ID validation and parsing', () => {
+  for (const key of ['CONTACTS_SHEET_ID', 'ANONYMOUS_SHEET_ID']) {
+    describe(key, () => {
+      const { validate, parse } = defFor(key);
+
+      it('accepts a plausible Sheet ID', () => {
+        expect(validate('1AbC-XyZ_1234567890123456')).toBeNull();
+      });
+
+      it('rejects something too short to be a real Sheet ID', () => {
+        expect(validate('abc')).not.toBeNull();
+      });
+
+      it('parses a pasted URL down to the ID before validation', () => {
+        expect(parse('https://docs.google.com/spreadsheets/d/1AbC-XyZ_1234567890123456/edit')).toBe(
+          '1AbC-XyZ_1234567890123456'
+        );
+      });
+    });
+  }
+});
+
 describe('APPS_SCRIPT_URL validation', () => {
   const { validate } = defFor('APPS_SCRIPT_URL');
 

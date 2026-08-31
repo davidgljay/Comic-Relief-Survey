@@ -21,6 +21,12 @@ const CONFIG = {
 
 const TAB_NAME = 'Sheet1';
 
+const CONTACTS_HEADER = [
+  'phone', 'name', 'email', 'consent', 'event', 'registered_at',
+  'sent_at', 'respondent_id', 'q1', 'q2', 'q3', 'q4', 'q5', 'completed_at',
+];
+const ANONYMOUS_HEADER = ['respondent_id', 'event', 'q1', 'q2', 'q3', 'q4', 'q5', 'completed_at'];
+
 function doPost(e) {
   try {
     const params = (e && e.parameter) || {};
@@ -29,6 +35,8 @@ function doPost(e) {
     }
 
     switch (params.action) {
+      case 'init_headers':
+        return jsonResponse(initHeadersAction_(params));
       case 'list_rows':
         return jsonResponse(listRows_(getSheet_(CONFIG.CONTACTS_SHEET_ID)));
       case 'upsert_contact':
@@ -44,6 +52,40 @@ function doPost(e) {
   } catch (err) {
     return jsonResponse({ error: String(err && err.message ? err.message : err) });
   }
+}
+
+// Writes the header row into both sheets if they're currently blank, and
+// verifies the sheet IDs the caller thinks it's targeting actually match this
+// deployment's CONFIG — deliberately does NOT accept caller-supplied sheet
+// IDs to write to, so a leaked secret can only ever touch the two sheets this
+// deployment was configured for, not an arbitrary sheet.
+function initHeadersAction_(params) {
+  if (params.contacts_sheet_id && params.contacts_sheet_id !== CONFIG.CONTACTS_SHEET_ID) {
+    throw new Error('contacts_sheet_id does not match CONFIG.CONTACTS_SHEET_ID in this deployment — redeploy Code.gs after fixing CONFIG, or fix the ID you entered.');
+  }
+  if (params.anonymous_sheet_id && params.anonymous_sheet_id !== CONFIG.ANONYMOUS_SHEET_ID) {
+    throw new Error('anonymous_sheet_id does not match CONFIG.ANONYMOUS_SHEET_ID in this deployment — redeploy Code.gs after fixing CONFIG, or fix the ID you entered.');
+  }
+  return {
+    ok: true,
+    contacts: initHeaders_(getSheet_(CONFIG.CONTACTS_SHEET_ID), CONTACTS_HEADER),
+    anonymous: initHeaders_(getSheet_(CONFIG.ANONYMOUS_SHEET_ID), ANONYMOUS_HEADER),
+  };
+}
+
+// Writes `header` into row 1 only if row 1 is currently blank; if row 1
+// already holds the exact same header, it's a no-op; if it holds something
+// else, refuses to touch it rather than risk destroying real data.
+function initHeaders_(sheet, header) {
+  const firstRow = sheet.getRange(1, 1, 1, header.length).getValues()[0];
+  if (firstRow.every((cell) => cell === '')) {
+    sheet.getRange(1, 1, 1, header.length).setValues([header]);
+    return 'written';
+  }
+  if (header.every((col, i) => firstRow[i] === col)) {
+    return 'already-present';
+  }
+  return 'skipped-existing-different-content';
 }
 
 function jsonResponse(obj) {
@@ -119,5 +161,5 @@ function upsertRow_(sheet, keyColumn, rowObj) {
 // it only exists to let plain Node (Jest) require the pure helper functions
 // above for testing, without needing to mock SpreadsheetApp/ContentService.
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { paramsToRow_, rowsFromValues_ };
+  module.exports = { paramsToRow_, rowsFromValues_, initHeaders_, CONTACTS_HEADER, ANONYMOUS_HEADER };
 }
