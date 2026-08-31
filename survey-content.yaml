@@ -1,0 +1,50 @@
+# Survey copy for the Comic Relief post-event SMS survey.
+#
+# Edit this file to change wording, then run `npm run generate:flow` to
+# regenerate studio-flow.json from it. Question order and branching logic
+# (Q3 -> Q4, Q1 -> Q5, retry/skip/timeout behavior) live in
+# scripts/generate-studio-flow.js, not here — this file is language only.
+# See survey-questions.md for the rationale behind each question.
+
+preamble: >-
+  We're trying to learn whether events like these are a helpful tool to
+  address child poverty, and would like to ask you 3-5 quick questions.
+  We'd appreciate it if you could take the time to answer. We won't text
+  you again once the survey is complete. You can also text STOP at any
+  time to opt out.
+
+# Used when a message is sent with no name to greet (e.g. the text-in test
+# path, where no registration name is available).
+greeting_name_default: there
+
+reprompt_invalid: >-
+  Sorry, I didn't quite catch that — please reply with just a number from
+  1 to 5.
+
+skip_message: >-
+  No worries — I'll skip that one.
+
+closing_message: >-
+  That's it! Thanks so much for taking the time to complete this survey
+  and for attending.
+
+questions:
+  q1: >-
+    How likely are you to discuss the work being done by an organization
+    present at this event with people in your life? Reply 1 for Very
+    Likely .... 5 for Very Unlikely
+  q2: >-
+    How likely are you to volunteer with or donate to an organization
+    that was present at this event in the next three months? Reply 1 for
+    Very Likely .... 5 for Very Unlikely
+  q3: >-
+    How likely are you to have a followup conversation with someone that
+    you met at this event? Reply 1 for Very Likely .... 5 for Very
+    Unlikely
+  q4: >-
+    How likely would you have been to meet or get to know this person if
+    not for tonight's event? Reply 1 for Very Likely .... 5 for Very
+    Unlikely
+  q5: >-
+    When you tell others about this event, what moment are you most
+    likely to share? (Feel free to describe it in your own words.)

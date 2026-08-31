@@ -1,11 +1,26 @@
-// Regenerates studio-flow.json from a small set of question definitions below.
-// Run with `npm run generate:flow` after editing a question's text or logic here.
-// Writing the flow programmatically (instead of hand-editing exported JSON) keeps
-// ~35 widgets internally consistent — every transition target is checked to exist
-// before the file is written.
+// Regenerates studio-flow.json: wording comes from survey-content.yaml, question
+// order/branching/retry logic lives below. Run `npm run generate:flow` after
+// editing either. Writing the flow programmatically (instead of hand-editing
+// exported JSON) keeps ~35 widgets internally consistent — every transition
+// target is checked to exist before the file is written.
 const fs = require('fs');
 const path = require('path');
+const yaml = require('js-yaml');
+
 const outPath = path.join(__dirname, '..', 'studio-flow.json');
+const contentPath = path.join(__dirname, '..', 'survey-content.yaml');
+const content = yaml.load(fs.readFileSync(contentPath, 'utf8'));
+
+for (const key of ['preamble', 'greeting_name_default', 'reprompt_invalid', 'skip_message', 'closing_message', 'questions']) {
+  if (content[key] === undefined) {
+    throw new Error(`survey-content.yaml is missing required key "${key}"`);
+  }
+}
+for (const q of ['q1', 'q2', 'q3', 'q4', 'q5']) {
+  if (!content.questions[q]) {
+    throw new Error(`survey-content.yaml is missing questions.${q}`);
+  }
+}
 
 let y = 0;
 function offset(x) {
@@ -146,16 +161,16 @@ const baseParams = () => [
 function numericQuestionBlock(qkey, questionText, opts) {
   const P = qkey.toUpperCase();
   const sendBody = opts.withPreamble
-    ? `Hi {{trigger.parameters.name | default: 'there'}}! ${opts.preamble}\n\n${questionText}`
+    ? `Hi {{trigger.parameters.name | default: '${content.greeting_name_default}'}}! ${content.preamble}\n\n${questionText}`
     : questionText;
 
   sendAndWait(`${P}_Send`, sendBody, opts.x);
   splitValidate(`${P}_Validate`, `${P}_Send`, opts.x);
-  sendAndWait(`${P}_Reprompt`, "Sorry, I didn't quite catch that — please reply with just a number from 1 to 5.", opts.x + 300);
+  sendAndWait(`${P}_Reprompt`, content.reprompt_invalid, opts.x + 300);
   splitValidate(`${P}_ValidateRetry`, `${P}_Reprompt`, opts.x + 300);
   httpSave(`${P}_Save`, [...baseParams(), { key: qkey, value: `{{widgets.${P}_Send.inbound.Body}}` }], opts.x);
   httpSave(`${P}_SaveRetry`, [...baseParams(), { key: qkey, value: `{{widgets.${P}_Reprompt.inbound.Body}}` }], opts.x + 300);
-  sendMessage(`${P}_Skip`, "No worries — I'll skip that one.", opts.x + 600);
+  sendMessage(`${P}_Skip`, content.skip_message, opts.x + 600);
 
   wire(`${P}_Send`, 'incomingMessage', `${P}_Validate`);
   wire(`${P}_Validate`, 'match', `${P}_Save`);
@@ -171,20 +186,19 @@ function numericQuestionBlock(qkey, questionText, opts) {
   wire(`${P}_Skip`, 'failed', opts.next);
 }
 
-numericQuestionBlock('q1', 'How likely are you to discuss the work being done by an organization present at this event with people in your life? Reply 1 for Very Likely .... 5 for Very Unlikely', {
+numericQuestionBlock('q1', content.questions.q1, {
   x: 0,
   withPreamble: true,
-  preamble: "We're trying to learn whether events like these are a helpful tool to address child poverty, and would like to ask you 3-5 quick questions. We'd appreciate it if you could take the time to answer. We won't text you again once the survey is complete. You can also text STOP at any time to opt out.",
   next: 'Q2_Send',
 });
 
-numericQuestionBlock('q2', 'How likely are you to volunteer with or donate to an organization that was present at this event in the next three months? Reply 1 for Very Likely .... 5 for Very Unlikely', {
+numericQuestionBlock('q2', content.questions.q2, {
   x: 1200,
   withPreamble: false,
   next: 'Q3_Send',
 });
 
-numericQuestionBlock('q3', 'How likely are you to have a followup conversation with someone that you met at this event? Reply 1 for Very Likely .... 5 for Very Unlikely', {
+numericQuestionBlock('q3', content.questions.q3, {
   x: 2400,
   withPreamble: false,
   next: 'Split_Q3Gate',
@@ -195,7 +209,7 @@ splitGate('Split_Q3Gate', '{{widgets.Q3_Save.parsed.q3}}{{widgets.Q3_SaveRetry.p
 wire('Split_Q3Gate', 'match', 'Q4_Send');
 wire('Split_Q3Gate', 'noMatch', 'Split_Q1Gate');
 
-numericQuestionBlock('q4', "How likely would you have been to meet or get to know this person if not for tonight's event? Reply 1 for Very Likely .... 5 for Very Unlikely", {
+numericQuestionBlock('q4', content.questions.q4, {
   x: 3600,
   withPreamble: false,
   next: 'Split_Q1Gate',
@@ -207,7 +221,7 @@ wire('Split_Q1Gate', 'match', 'Q5_Send');
 wire('Split_Q1Gate', 'noMatch', 'Closing_Save');
 
 // ---- Q5 (open text, no retry) ----
-sendAndWait('Q5_Send', 'When you tell others about this event, what moment are you most likely to share? (Feel free to describe it in your own words.)', 6000);
+sendAndWait('Q5_Send', content.questions.q5, 6000);
 httpSave('Q5_Save', [...baseParams(), { key: 'q5', value: '{{widgets.Q5_Send.inbound.Body}}' }], 6000);
 wire('Q5_Send', 'incomingMessage', 'Q5_Save');
 wire('Q5_Save', 'success', 'Closing_Save');
@@ -215,7 +229,7 @@ wire('Q5_Save', 'failed', 'Closing_Save');
 
 // ---- Closing ----
 httpSave('Closing_Save', [...baseParams(), { key: 'completed', value: 'true' }], 7200);
-sendMessage('Closing_Message', "That's it! Thanks so much for taking the time to complete this survey and for attending.", 7200);
+sendMessage('Closing_Message', content.closing_message, 7200);
 wire('Closing_Save', 'success', 'Closing_Message');
 wire('Closing_Save', 'failed', 'Closing_Message');
 // Closing_Message is terminal: remove its transitions (execution ends after send)

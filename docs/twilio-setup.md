@@ -53,10 +53,11 @@ These have the longest lead time — start them first, before scheduling a pilot
      `STUDIO_FLOW_SID` set. Flags: `--skip-env` reuses the existing `.env` without
      re-prompting; `--skip-tests` skips the `npm test` gate.
 
-To change the survey's wording, edit the question/message text in
-`scripts/generate-studio-flow.js` (not `studio-flow.json` directly — it's generated
-and gets overwritten), run `npm run generate:flow` to rebuild `studio-flow.json`, then
-`npm run deploy` to push it.
+To change the survey's wording, edit [`survey-content.yaml`](../survey-content.yaml)
+(not `studio-flow.json` directly — it's generated and gets overwritten), run
+`npm run generate:flow` to rebuild `studio-flow.json`, then `npm run deploy` to push
+it. Question order, branching, and retry/skip/timeout logic live in
+`scripts/generate-studio-flow.js` instead — that file is code, not copy.
 
 ## 3. Google Sheets
 
