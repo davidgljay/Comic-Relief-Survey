@@ -54,6 +54,16 @@ describe('studio-flow.json', () => {
     }
   });
 
+  it('sets "from" on every widget that sends an SMS (required by the Studio API — error 81022 if missing)', () => {
+    const sendingStates = flow.states.filter(
+      (s) => s.type === 'send-and-wait-for-reply' || s.type === 'send-message'
+    );
+    expect(sendingStates.length).toBeGreaterThan(0);
+    for (const state of sendingStates) {
+      expect(state.properties.from).toBe('{{flow.channel.address}}');
+    }
+  });
+
   it('never sends a final message after the closing message (terminal state)', () => {
     const closing = flow.states.find((s) => s.name === 'Closing_Message');
     expect(closing.transitions).toEqual([]);

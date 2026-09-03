@@ -42,6 +42,7 @@ function sendAndWait(name, body, x, timeout) {
       offset: offset(x),
       body,
       timeout: String(timeout || 86400),
+      from: '{{flow.channel.address}}',
     },
   });
 }

@@ -36,7 +36,8 @@
           "y": 300
         },
         "body": "Hi {{trigger.parameters.name | default: 'there'}}! We're trying to learn whether events like these are a helpful tool to address child poverty, and would like to ask you 3-5 quick questions. We'd appreciate it if you could take the time to answer. We won't text you again once the survey is complete. You can also text STOP at any time to opt out.\n\nHow likely are you to discuss the work being done by an organization present at this event with people in your life? Reply 1 for Very Likely .... 5 for Very Unlikely",
-        "timeout": "86400"
+        "timeout": "86400",
+        "from": "{{flow.channel.address}}"
       }
     },
     {
@@ -82,7 +83,8 @@
           "y": 600
         },
         "body": "Sorry, I didn't quite catch that — please reply with just a number from 1 to 5.",
-        "timeout": "86400"
+        "timeout": "86400",
+        "from": "{{flow.channel.address}}"
       }
     },
     {
@@ -233,7 +235,8 @@
           "y": 1350
         },
         "body": "How likely are you to volunteer with or donate to an organization that was present at this event in the next three months? Reply 1 for Very Likely .... 5 for Very Unlikely",
-        "timeout": "86400"
+        "timeout": "86400",
+        "from": "{{flow.channel.address}}"
       }
     },
     {
@@ -279,7 +282,8 @@
           "y": 1650
         },
         "body": "Sorry, I didn't quite catch that — please reply with just a number from 1 to 5.",
-        "timeout": "86400"
+        "timeout": "86400",
+        "from": "{{flow.channel.address}}"
       }
     },
     {
@@ -430,7 +434,8 @@
           "y": 2400
         },
         "body": "How likely are you to have a followup conversation with someone that you met at this event? Reply 1 for Very Likely .... 5 for Very Unlikely",
-        "timeout": "86400"
+        "timeout": "86400",
+        "from": "{{flow.channel.address}}"
       }
     },
     {
@@ -476,7 +481,8 @@
           "y": 2700
         },
         "body": "Sorry, I didn't quite catch that — please reply with just a number from 1 to 5.",
-        "timeout": "86400"
+        "timeout": "86400",
+        "from": "{{flow.channel.address}}"
       }
     },
     {
@@ -655,7 +661,8 @@
           "y": 3600
         },
         "body": "How likely would you have been to meet or get to know this person if not for tonight's event? Reply 1 for Very Likely .... 5 for Very Unlikely",
-        "timeout": "86400"
+        "timeout": "86400",
+        "from": "{{flow.channel.address}}"
       }
     },
     {
@@ -701,7 +708,8 @@
           "y": 3900
         },
         "body": "Sorry, I didn't quite catch that — please reply with just a number from 1 to 5.",
-        "timeout": "86400"
+        "timeout": "86400",
+        "from": "{{flow.channel.address}}"
       }
     },
     {
@@ -880,7 +888,8 @@
           "y": 4800
         },
         "body": "When you tell others about this event, what moment are you most likely to share? (Feel free to describe it in your own words.)",
-        "timeout": "86400"
+        "timeout": "86400",
+        "from": "{{flow.channel.address}}"
       }
     },
     {
