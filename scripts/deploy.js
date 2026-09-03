@@ -176,6 +176,14 @@ async function deployFunctions(values) {
   // --password are twilio-run's own documented flags (`twilio-run deploy
   // --help`) for passing credentials explicitly instead of relying on a
   // separately-configured Twilio CLI profile.
+  // --override-existing-project: twilio-run's *own* way of knowing "this
+  // Service already exists, reuse it" is a local .twiliodeployinfo cache
+  // file — gitignored, so it never exists on a fresh clone or another
+  // machine, and re-running deploy without it errors with "Service ...
+  // already exists" instead of just deploying to it. Since this project
+  // always deploys to one service (named from package.json's "name"), that
+  // reuse should always happen, so it's forced explicitly rather than
+  // depending on a cache file surviving.
   const output = await run('npx', [
     'twilio-run',
     'deploy',
@@ -183,6 +191,7 @@ async function deployFunctions(values) {
     values.ACCOUNT_SID,
     '--password',
     values.AUTH_TOKEN,
+    '--override-existing-project',
   ]);
   const domain = extractDomain(output);
   if (!domain) {

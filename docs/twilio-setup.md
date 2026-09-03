@@ -69,10 +69,14 @@ cut a new deployment version (§3 step 12), then re-run `npm run deploy --skip-e
      real data.
    - Runs `twilio-run deploy` (the Serverless Toolkit's own standalone CLI — not the
      full Twilio CLI, which isn't required here), passing `ACCOUNT_SID`/`AUTH_TOKEN`
-     from `.env` directly via `--username`/`--password` (no `twilio login` needed),
-     reads the real deployed domain out of its output, and substitutes it into
-     `studio-flow.json` in memory (the tracked file on disk is untouched — it keeps
-     the `REPLACE_WITH_DEPLOYED_DOMAIN` placeholder).
+     from `.env` directly via `--username`/`--password` (no `twilio login` needed) and
+     `--override-existing-project` (always deploys to the one Service this project
+     uses, named from `package.json`, rather than erroring "Service already exists" —
+     `twilio-run`'s own way of tracking that is a local, gitignored cache file that
+     won't exist on a fresh clone or another machine), reads the real deployed domain
+     out of its output, and substitutes it into `studio-flow.json` in memory (the
+     tracked file on disk is untouched — it keeps the `REPLACE_WITH_DEPLOYED_DOMAIN`
+     placeholder).
    - Creates the Studio Flow via the API on first run (or updates it in place on
      later runs), publishes it, and writes the resulting `STUDIO_FLOW_SID` back into
      `.env`.
