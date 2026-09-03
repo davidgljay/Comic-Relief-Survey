@@ -989,8 +989,5 @@
       }
     }
   ],
-  "initial_state": "Trigger",
-  "flags": {
-    "allow_concurrent_calls": true
-  }
+  "initial_state": "Trigger"
 }

@@ -255,11 +255,21 @@ for (const s of states) {
   }
 }
 
+// `flags: { allow_concurrent_calls: true }` was removed from here: Twilio's
+// Studio Flow API rejected the definition with a generic "validation failed"
+// (code 81022) and an empty errors/warnings array once every other issue was
+// fixed — pointing at this being the one remaining untested top-level key
+// (states/widgets are otherwise now proven valid by prior, itemized 81022
+// errors that named specific widgets). Documented as valid in places, but
+// evidently rejected in practice for this account/API version; add it back
+// only after confirming a real deploy succeeds without it, then test it in
+// isolation if it's needed (it only affects whether one contact texting
+// mid-flow can start a second concurrent execution — not required for the
+// survey to work).
 const flow = {
   description: 'Comic Relief post-event SMS survey',
   states,
   initial_state: 'Trigger',
-  flags: { allow_concurrent_calls: true },
 };
 
 fs.writeFileSync(outPath, JSON.stringify(flow, null, 2) + '\n');
