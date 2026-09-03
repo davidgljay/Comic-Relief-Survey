@@ -1,6 +1,6 @@
 const mockCallAppsScript = jest.fn();
 
-jest.mock('../functions/_lib/apps-script-client.js', () => ({
+jest.mock('../functions/lib/apps-script-client.private.js', () => ({
   callAppsScript: (...args) => mockCallAppsScript(...args),
 }));
 

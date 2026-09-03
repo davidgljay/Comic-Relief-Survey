@@ -3,7 +3,7 @@
 // Accepts either a multipart file field named "file", or a raw CSV string in
 // a "csv" field. Required columns: phone, name, event, consent. Optional: email, registered_at.
 const { parse } = require('csv-parse/sync');
-const { callAppsScript } = require('./_lib/apps-script-client.js');
+const { callAppsScript } = require('./lib/apps-script-client.private.js');
 
 const E164 = /^\+[1-9]\d{1,14}$/;
 

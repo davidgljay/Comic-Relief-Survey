@@ -9,7 +9,7 @@
 // action "save_response"):
 //   - Contacts sheet (keyed by phone): full record, includes name/phone.
 //   - Anonymous sheet (keyed by respondent_id): answers only, never phone/name.
-const { callAppsScript } = require('./_lib/apps-script-client.js');
+const { callAppsScript } = require('./lib/apps-script-client.private.js');
 
 const ANSWER_FIELDS = ['q1', 'q2', 'q3', 'q4', 'q5'];
 

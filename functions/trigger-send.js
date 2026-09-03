@@ -3,7 +3,7 @@
 // send time. Starts a Studio Flow execution for every consenting, not-yet-sent
 // contact for the given event, then marks them sent so retries don't double-send.
 const crypto = require('crypto');
-const { callAppsScript } = require('./_lib/apps-script-client.js');
+const { callAppsScript } = require('./lib/apps-script-client.private.js');
 
 exports.handler = async function (context, event, callback) {
   const response = new Twilio.Response();

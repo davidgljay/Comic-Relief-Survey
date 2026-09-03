@@ -4,7 +4,7 @@ jest.mock('https', () => ({
   request: (...args) => mockRequest(...args),
 }));
 
-const { callAppsScript } = require('../../functions/_lib/apps-script-client.js');
+const { callAppsScript } = require('../../functions/lib/apps-script-client.private.js');
 
 // Builds a fake https.request(url, options, callback) call: invokes the
 // callback synchronously with a fake response that emits `body` on 'data'

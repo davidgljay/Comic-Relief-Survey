@@ -201,25 +201,42 @@ async function deployFunctions(values) {
   return domain;
 }
 
+// The Twilio Node SDK throws a RestException on API errors with the useful
+// bits (code/moreInfo/details — details is where Studio's per-widget flow
+// validation errors actually live) as extra properties that err.message
+// alone doesn't include. Printed directly here (rather than folded into the
+// thrown Error's message) since `details` can be a large nested object.
+function logStudioApiError(err) {
+  console.error('\nStudio API error:', err.message);
+  if (err.code) console.error('  code:', err.code);
+  if (err.moreInfo) console.error('  moreInfo:', err.moreInfo);
+  if (err.details) console.error('  details:', JSON.stringify(err.details, null, 2));
+}
+
 async function syncStudioFlow(values, domain) {
   const twilio = require('twilio');
   const client = twilio(values.ACCOUNT_SID, values.AUTH_TOKEN);
   const flowJson = substituteDomain(fs.readFileSync(FLOW_PATH, 'utf8'), domain);
 
-  if (values.STUDIO_FLOW_SID) {
-    console.log(`\n--- Updating existing Studio Flow ${values.STUDIO_FLOW_SID} ---\n`);
-    await client.studio.v2.flows(values.STUDIO_FLOW_SID).update({ status: 'published', definition: flowJson });
-    return { sid: values.STUDIO_FLOW_SID, created: false };
-  }
+  try {
+    if (values.STUDIO_FLOW_SID) {
+      console.log(`\n--- Updating existing Studio Flow ${values.STUDIO_FLOW_SID} ---\n`);
+      await client.studio.v2.flows(values.STUDIO_FLOW_SID).update({ status: 'published', definition: flowJson });
+      return { sid: values.STUDIO_FLOW_SID, created: false };
+    }
 
-  console.log('\n--- Creating new Studio Flow ---\n');
-  const flow = await client.studio.v2.flows.create({
-    friendlyName: 'Comic Relief Post-Event Survey',
-    status: 'published',
-    definition: flowJson,
-  });
-  console.log(`Created Studio Flow ${flow.sid}`);
-  return { sid: flow.sid, created: true };
+    console.log('\n--- Creating new Studio Flow ---\n');
+    const flow = await client.studio.v2.flows.create({
+      friendlyName: 'Comic Relief Post-Event Survey',
+      status: 'published',
+      definition: flowJson,
+    });
+    console.log(`Created Studio Flow ${flow.sid}`);
+    return { sid: flow.sid, created: true };
+  } catch (err) {
+    logStudioApiError(err);
+    throw new Error(`Studio Flow sync failed: ${err.message} (see details logged above)`);
+  }
 }
 
 function appsScriptContext(values) {
@@ -230,7 +247,7 @@ function appsScriptContext(values) {
 // without anyone having to type it in by hand. Safe to call on every deploy:
 // Code.gs only writes when row 1 is blank, and leaves anything else alone.
 async function initializeSheetHeaders(values) {
-  const { callAppsScript } = require('../functions/_lib/apps-script-client.js');
+  const { callAppsScript } = require('../functions/lib/apps-script-client.private.js');
   console.log('\n--- Initializing Google Sheet headers ---\n');
   let result;
   try {
@@ -261,7 +278,7 @@ async function initializeSheetHeaders(values) {
 }
 
 async function watchForTestRow(values) {
-  const { callAppsScript } = require('../functions/_lib/apps-script-client.js');
+  const { callAppsScript } = require('../functions/lib/apps-script-client.private.js');
   const context = appsScriptContext(values);
 
   console.log('\nWatching the Contacts sheet for a new "test" row (checking every 5s, up to 5 minutes).');

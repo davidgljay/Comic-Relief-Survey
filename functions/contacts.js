@@ -1,7 +1,7 @@
 // POST /contacts
 // Adds (or updates) a single consenting contact, collected at event registration.
 // Body (JSON or form-encoded): phone, name, email (optional), consent, event, registered_at (optional)
-const { callAppsScript } = require('./_lib/apps-script-client.js');
+const { callAppsScript } = require('./lib/apps-script-client.private.js');
 
 const E164 = /^\+[1-9]\d{1,14}$/;
 

@@ -1,5 +1,7 @@
-// Private helper module (functions/_lib/) — the leading underscore keeps the
-// Twilio Serverless Toolkit from deploying this as its own invokable route.
+// Private helper module — the .private.js suffix is what actually keeps the
+// Twilio Serverless Toolkit from deploying this as its own invokable public
+// route (a leading underscore on the directory/file name, used here before,
+// does nothing — this file was live at /lib/apps-script-client until fixed).
 //
 // Talks to the Google Apps Script Web App (apps-script/Code.gs) that owns
 // both Google Sheets. Using Apps Script instead of the Sheets REST API means
