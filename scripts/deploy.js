@@ -223,10 +223,24 @@ function appsScriptContext(values) {
 async function initializeSheetHeaders(values) {
   const { callAppsScript } = require('../functions/_lib/apps-script-client.js');
   console.log('\n--- Initializing Google Sheet headers ---\n');
-  const result = await callAppsScript(appsScriptContext(values), 'init_headers', {
-    contacts_sheet_id: values.CONTACTS_SHEET_ID,
-    anonymous_sheet_id: values.ANONYMOUS_SHEET_ID,
-  });
+  let result;
+  try {
+    result = await callAppsScript(appsScriptContext(values), 'init_headers', {
+      contacts_sheet_id: values.CONTACTS_SHEET_ID,
+      anonymous_sheet_id: values.ANONYMOUS_SHEET_ID,
+    });
+  } catch (err) {
+    if (/invalid secret/i.test(err.message)) {
+      throw new Error(
+        `Apps Script rejected the call with "invalid secret". The SHARED_SECRET constant in apps-script/Code.gs ` +
+          `doesn't match .env's APPS_SCRIPT_SECRET (${values.APPS_SCRIPT_SECRET}) yet. Fix: open the Apps Script ` +
+          `editor (Extensions > Apps Script from either Sheet), set CONFIG.SHARED_SECRET to that exact value, ` +
+          `save, then Deploy > Manage deployments > pencil icon > Version: New version > Deploy (saving alone ` +
+          `does not update the live /exec URL). Then re-run: npm run deploy --skip-env`
+      );
+    }
+    throw err;
+  }
   console.log(`Contacts & Results sheet: ${result.contacts}`);
   console.log(`Anonymous Results sheet: ${result.anonymous}`);
   if (result.contacts === 'skipped-existing-different-content' || result.anonymous === 'skipped-existing-different-content') {
@@ -329,4 +343,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { ENV_VARS, REQUIRED_KEYS };
+module.exports = { ENV_VARS, REQUIRED_KEYS, initializeSheetHeaders };
