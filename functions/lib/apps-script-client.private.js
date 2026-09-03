@@ -11,14 +11,25 @@
 const https = require('https');
 const { URLSearchParams } = require('url');
 
+// DEBUG is opt-in (APPS_SCRIPT_DEBUG=1) so normal Twilio Function logs stay
+// quiet, but easy to turn on locally: `APPS_SCRIPT_DEBUG=1 npm run deploy`.
+const DEBUG = process.env.APPS_SCRIPT_DEBUG === '1';
+function debugLog(...args) {
+  if (DEBUG) console.error('[apps-script-client]', ...args);
+}
+
 function request(urlString, method) {
   return new Promise((resolve, reject) => {
+    debugLog(method, urlString);
     const req = https.request(urlString, { method }, (res) => {
       let data = '';
       res.on('data', (chunk) => {
         data += chunk;
       });
-      res.on('end', () => resolve({ statusCode: res.statusCode, headers: res.headers, body: data }));
+      res.on('end', () => {
+        debugLog('  ->', res.statusCode, res.headers.location ? `location: ${res.headers.location}` : '');
+        resolve({ statusCode: res.statusCode, headers: res.headers, body: data });
+      });
     });
     req.on('error', reject);
     req.end();
@@ -27,6 +38,7 @@ function request(urlString, method) {
 
 function postForm(urlString, body) {
   return new Promise((resolve, reject) => {
+    debugLog('POST', urlString);
     const req = https.request(
       urlString,
       {
@@ -41,7 +53,10 @@ function postForm(urlString, body) {
         res.on('data', (chunk) => {
           data += chunk;
         });
-        res.on('end', () => resolve({ statusCode: res.statusCode, headers: res.headers, body: data }));
+        res.on('end', () => {
+          debugLog('  ->', res.statusCode, res.headers.location ? `location: ${res.headers.location}` : '');
+          resolve({ statusCode: res.statusCode, headers: res.headers, body: data });
+        });
       }
     );
     req.on('error', reject);
@@ -56,17 +71,21 @@ async function callAppsScript(context, action, params) {
   const body = new URLSearchParams({ ...params, action, secret: context.APPS_SCRIPT_SECRET }).toString();
 
   let response = await postForm(context.APPS_SCRIPT_URL, body);
+  let step = 'POST ' + context.APPS_SCRIPT_URL;
 
   // Apps Script Web Apps route POST results through a redirect to a
   // content host — most HTTP clients don't follow redirects on POST
   // automatically, so this is followed explicitly (as a GET, per Apps
   // Script's own behavior: the redirect target already has the full result).
   if ([301, 302, 303].includes(response.statusCode) && response.headers.location) {
+    step = 'GET (redirect) ' + response.headers.location;
     response = await request(response.headers.location, 'GET');
   }
 
   if (response.statusCode < 200 || response.statusCode >= 300) {
-    throw new Error(`Apps Script call failed (${response.statusCode}): ${response.body.slice(0, 200)}`);
+    throw new Error(
+      `Apps Script call failed at ${step} -> ${response.statusCode}: ${response.body.slice(0, 200)}`
+    );
   }
 
   let parsed;

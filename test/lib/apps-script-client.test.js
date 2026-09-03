@@ -71,9 +71,21 @@ describe('callAppsScript', () => {
     await expect(callAppsScript(context, 'list_rows', {})).rejects.toThrow(/invalid secret/);
   });
 
-  it('throws on a non-2xx status with no redirect', async () => {
+  it('throws on a non-2xx status with no redirect, naming which request failed', async () => {
     mockRequest.mockImplementation(fakeResponse({ statusCode: 500, body: 'internal error' }));
 
-    await expect(callAppsScript(context, 'list_rows', {})).rejects.toThrow(/failed \(500\)/);
+    await expect(callAppsScript(context, 'list_rows', {})).rejects.toThrow(/POST .* -> 500/);
+  });
+
+  it('names the redirect target, not the original URL, when the followed request fails', async () => {
+    mockRequest
+      .mockImplementationOnce(
+        fakeResponse({ statusCode: 302, headers: { location: 'https://script.googleusercontent.com/echo?x=1' }, body: '' })
+      )
+      .mockImplementationOnce(fakeResponse({ statusCode: 404, body: 'not found' }));
+
+    await expect(callAppsScript(context, 'list_rows', {})).rejects.toThrow(
+      /GET \(redirect\) https:\/\/script\.googleusercontent\.com\/echo\?x=1 -> 404/
+    );
   });
 });
