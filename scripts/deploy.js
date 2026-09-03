@@ -218,6 +218,25 @@ async function syncStudioFlow(values, domain) {
   const client = twilio(values.ACCOUNT_SID, values.AUTH_TOKEN);
   const flowJson = substituteDomain(fs.readFileSync(FLOW_PATH, 'utf8'), domain);
 
+  // Studio's dedicated Validate endpoint (POST /v2/Flows/Validate) checks a
+  // definition against the same rules create/update do, without creating or
+  // changing anything — run it first so a definition-content problem is
+  // diagnosed here, separate from any create/update-specific failure (e.g. a
+  // friendly-name conflict from a prior partial attempt) that would produce
+  // the same generic 81022 but for an unrelated reason.
+  console.log('\n--- Validating Studio Flow definition (no changes made yet) ---\n');
+  try {
+    const validation = await client.studio.v2.flowValidate.update({
+      friendlyName: 'Comic Relief Post-Event Survey',
+      status: 'published',
+      definition: flowJson,
+    });
+    console.log('Definition is valid:', validation.valid);
+  } catch (err) {
+    logStudioApiError(err);
+    throw new Error(`Studio Flow definition is invalid: ${err.message} (see details logged above)`);
+  }
+
   try {
     if (values.STUDIO_FLOW_SID) {
       console.log(`\n--- Updating existing Studio Flow ${values.STUDIO_FLOW_SID} ---\n`);
