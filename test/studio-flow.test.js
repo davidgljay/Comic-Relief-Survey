@@ -75,6 +75,19 @@ describe('studio-flow.json', () => {
     }
   });
 
+  it('sets a non-empty "arguments" array on every condition (required — 81022 "must not be null" if missing)', () => {
+    const splitStates = flow.states.filter((s) => s.type === 'split-based-on');
+    expect(splitStates.length).toBeGreaterThan(0);
+    for (const state of splitStates) {
+      const matchTransition = state.transitions.find((t) => t.event === 'match');
+      for (const condition of matchTransition.conditions) {
+        expect(Array.isArray(condition.arguments)).toBe(true);
+        expect(condition.arguments.length).toBeGreaterThan(0);
+        expect(condition.arguments).toEqual([condition.value]);
+      }
+    }
+  });
+
   it('uses a content_type Twilio actually accepts on every make-http-request widget', () => {
     const httpStates = flow.states.filter((s) => s.type === 'make-http-request');
     expect(httpStates.length).toBeGreaterThan(0);

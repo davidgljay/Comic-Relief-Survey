@@ -74,7 +74,7 @@ function splitValidate(name, inputWidget, x) {
         event: 'match',
         next: `${name}_match_placeholder`,
         conditions: [
-          { friendly_name: 'If value matches regex ^[1-5]$', type: 'regex', value: '^[1-5]$' },
+          { friendly_name: 'If value matches regex ^[1-5]$', type: 'regex', value: '^[1-5]$', arguments: ['^[1-5]$'] },
         ],
       },
     ],
@@ -95,7 +95,7 @@ function splitGate(name, inputExpr, x) {
         event: 'match',
         next: `${name}_match_placeholder`,
         conditions: [
-          { friendly_name: 'If value matches regex ^[1-2]$', type: 'regex', value: '^[1-2]$' },
+          { friendly_name: 'If value matches regex ^[1-2]$', type: 'regex', value: '^[1-2]$', arguments: ['^[1-2]$'] },
         ],
       },
     ],

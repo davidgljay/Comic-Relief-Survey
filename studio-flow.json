@@ -55,7 +55,10 @@
             {
               "friendly_name": "If value matches regex ^[1-5]$",
               "type": "regex",
-              "value": "^[1-5]$"
+              "value": "^[1-5]$",
+              "arguments": [
+                "^[1-5]$"
+              ]
             }
           ]
         }
@@ -102,7 +105,10 @@
             {
               "friendly_name": "If value matches regex ^[1-5]$",
               "type": "regex",
-              "value": "^[1-5]$"
+              "value": "^[1-5]$",
+              "arguments": [
+                "^[1-5]$"
+              ]
             }
           ]
         }
@@ -254,7 +260,10 @@
             {
               "friendly_name": "If value matches regex ^[1-5]$",
               "type": "regex",
-              "value": "^[1-5]$"
+              "value": "^[1-5]$",
+              "arguments": [
+                "^[1-5]$"
+              ]
             }
           ]
         }
@@ -301,7 +310,10 @@
             {
               "friendly_name": "If value matches regex ^[1-5]$",
               "type": "regex",
-              "value": "^[1-5]$"
+              "value": "^[1-5]$",
+              "arguments": [
+                "^[1-5]$"
+              ]
             }
           ]
         }
@@ -453,7 +465,10 @@
             {
               "friendly_name": "If value matches regex ^[1-5]$",
               "type": "regex",
-              "value": "^[1-5]$"
+              "value": "^[1-5]$",
+              "arguments": [
+                "^[1-5]$"
+              ]
             }
           ]
         }
@@ -500,7 +515,10 @@
             {
               "friendly_name": "If value matches regex ^[1-5]$",
               "type": "regex",
-              "value": "^[1-5]$"
+              "value": "^[1-5]$",
+              "arguments": [
+                "^[1-5]$"
+              ]
             }
           ]
         }
@@ -633,7 +651,10 @@
             {
               "friendly_name": "If value matches regex ^[1-2]$",
               "type": "regex",
-              "value": "^[1-2]$"
+              "value": "^[1-2]$",
+              "arguments": [
+                "^[1-2]$"
+              ]
             }
           ]
         }
@@ -680,7 +701,10 @@
             {
               "friendly_name": "If value matches regex ^[1-5]$",
               "type": "regex",
-              "value": "^[1-5]$"
+              "value": "^[1-5]$",
+              "arguments": [
+                "^[1-5]$"
+              ]
             }
           ]
         }
@@ -727,7 +751,10 @@
             {
               "friendly_name": "If value matches regex ^[1-5]$",
               "type": "regex",
-              "value": "^[1-5]$"
+              "value": "^[1-5]$",
+              "arguments": [
+                "^[1-5]$"
+              ]
             }
           ]
         }
@@ -860,7 +887,10 @@
             {
               "friendly_name": "If value matches regex ^[1-2]$",
               "type": "regex",
-              "value": "^[1-2]$"
+              "value": "^[1-2]$",
+              "arguments": [
+                "^[1-2]$"
+              ]
             }
           ]
         }
