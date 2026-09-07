@@ -258,6 +258,29 @@ async function syncStudioFlow(values, domain) {
   }
 }
 
+// Creating a Studio Flow does NOT attach it to any phone number — inbound
+// SMS is only routed to it once the number's "A message comes in" webhook
+// points at the flow's execution URL. Safe to run on every deploy: it just
+// re-sets the same webhook, so it's a no-op if already correct, and repairs
+// it if someone changed it (or it was never set) since the last deploy.
+async function attachFlowToPhoneNumber(values, flowSid) {
+  const twilio = require('twilio');
+  const client = twilio(values.ACCOUNT_SID, values.AUTH_TOKEN);
+
+  console.log('\n--- Attaching the Studio Flow to the phone number ---\n');
+  const numbers = await client.incomingPhoneNumbers.list({ phoneNumber: values.TWILIO_PHONE_NUMBER });
+  if (numbers.length === 0) {
+    throw new Error(
+      `No Twilio phone number resource found matching ${values.TWILIO_PHONE_NUMBER} on this account — ` +
+        `check TWILIO_PHONE_NUMBER in .env is correct and that the number is provisioned on this account.`
+    );
+  }
+
+  const webhookUrl = `https://webhooks.twilio.com/v1/Accounts/${values.ACCOUNT_SID}/Flows/${flowSid}`;
+  await client.incomingPhoneNumbers(numbers[0].sid).update({ smsUrl: webhookUrl, smsMethod: 'POST' });
+  console.log(`${values.TWILIO_PHONE_NUMBER}'s "A message comes in" webhook now points at Flow ${flowSid}.`);
+}
+
 function appsScriptContext(values) {
   return { APPS_SCRIPT_URL: values.APPS_SCRIPT_URL, APPS_SCRIPT_SECRET: values.APPS_SCRIPT_SECRET };
 }
@@ -366,6 +389,8 @@ async function main() {
       console.log('\n--- Redeploying Functions so trigger-send.js has the new STUDIO_FLOW_SID ---');
       await deployFunctions(values);
     }
+
+    await attachFlowToPhoneNumber(values, sid);
 
     console.log('\n=== Deployed ===');
     console.log(`Text ${values.TWILIO_PHONE_NUMBER} from your phone to manually walk the survey — no API call`);

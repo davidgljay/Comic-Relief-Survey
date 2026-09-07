@@ -82,6 +82,11 @@ cut a new deployment version (§3 step 12), then re-run `npm run deploy --skip-e
      `.env`.
    - Redeploys the Functions once more if the Flow SID changed, so `trigger-send.js`
      has the right one.
+   - Sets `TWILIO_PHONE_NUMBER`'s **"A message comes in" webhook** to point at the
+     Studio Flow. Creating a Flow doesn't attach it to any number by itself — without
+     this step, texting the number does nothing at all, and it's easy to miss since
+     the deploy otherwise looks fully successful. Safe to re-run: it just re-sets the
+     same webhook.
    - Offers to watch the Contacts sheet for the row a live test text produces (see
      §7).
    - Re-run any time with `npm run deploy` — it's idempotent (updates the existing
