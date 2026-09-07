@@ -74,7 +74,7 @@ function splitValidate(name, inputWidget, x) {
         event: 'match',
         next: `${name}_match_placeholder`,
         conditions: [
-          { friendly_name: 'If value matches_regex ^[1-5]$', type: 'matches_regex', value: '^[1-5]$' },
+          { friendly_name: 'If value matches regex ^[1-5]$', type: 'regex', value: '^[1-5]$' },
         ],
       },
     ],
@@ -95,7 +95,7 @@ function splitGate(name, inputExpr, x) {
         event: 'match',
         next: `${name}_match_placeholder`,
         conditions: [
-          { friendly_name: 'If value matches_regex ^[1-2]$', type: 'matches_regex', value: '^[1-2]$' },
+          { friendly_name: 'If value matches regex ^[1-2]$', type: 'regex', value: '^[1-2]$' },
         ],
       },
     ],
@@ -118,7 +118,7 @@ function httpSave(name, params, x) {
       offset: offset(x),
       url: FUNCTIONS_URL,
       method: 'POST',
-      content_type: 'application/x-www-form-urlencoded;charset=utf-8',
+      content_type: 'application/x-www-form-urlencoded',
       parameters: params,
     },
   });

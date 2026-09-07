@@ -53,8 +53,8 @@
           "next": "Q1_Save",
           "conditions": [
             {
-              "friendly_name": "If value matches_regex ^[1-5]$",
-              "type": "matches_regex",
+              "friendly_name": "If value matches regex ^[1-5]$",
+              "type": "regex",
               "value": "^[1-5]$"
             }
           ]
@@ -100,8 +100,8 @@
           "next": "Q1_SaveRetry",
           "conditions": [
             {
-              "friendly_name": "If value matches_regex ^[1-5]$",
-              "type": "matches_regex",
+              "friendly_name": "If value matches regex ^[1-5]$",
+              "type": "regex",
               "value": "^[1-5]$"
             }
           ]
@@ -135,7 +135,7 @@
         },
         "url": "https://REPLACE_WITH_DEPLOYED_DOMAIN.twil.io/save-response",
         "method": "POST",
-        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "content_type": "application/x-www-form-urlencoded",
         "parameters": [
           {
             "key": "respondent_id",
@@ -176,7 +176,7 @@
         },
         "url": "https://REPLACE_WITH_DEPLOYED_DOMAIN.twil.io/save-response",
         "method": "POST",
-        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "content_type": "application/x-www-form-urlencoded",
         "parameters": [
           {
             "key": "respondent_id",
@@ -252,8 +252,8 @@
           "next": "Q2_Save",
           "conditions": [
             {
-              "friendly_name": "If value matches_regex ^[1-5]$",
-              "type": "matches_regex",
+              "friendly_name": "If value matches regex ^[1-5]$",
+              "type": "regex",
               "value": "^[1-5]$"
             }
           ]
@@ -299,8 +299,8 @@
           "next": "Q2_SaveRetry",
           "conditions": [
             {
-              "friendly_name": "If value matches_regex ^[1-5]$",
-              "type": "matches_regex",
+              "friendly_name": "If value matches regex ^[1-5]$",
+              "type": "regex",
               "value": "^[1-5]$"
             }
           ]
@@ -334,7 +334,7 @@
         },
         "url": "https://REPLACE_WITH_DEPLOYED_DOMAIN.twil.io/save-response",
         "method": "POST",
-        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "content_type": "application/x-www-form-urlencoded",
         "parameters": [
           {
             "key": "respondent_id",
@@ -375,7 +375,7 @@
         },
         "url": "https://REPLACE_WITH_DEPLOYED_DOMAIN.twil.io/save-response",
         "method": "POST",
-        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "content_type": "application/x-www-form-urlencoded",
         "parameters": [
           {
             "key": "respondent_id",
@@ -451,8 +451,8 @@
           "next": "Q3_Save",
           "conditions": [
             {
-              "friendly_name": "If value matches_regex ^[1-5]$",
-              "type": "matches_regex",
+              "friendly_name": "If value matches regex ^[1-5]$",
+              "type": "regex",
               "value": "^[1-5]$"
             }
           ]
@@ -498,8 +498,8 @@
           "next": "Q3_SaveRetry",
           "conditions": [
             {
-              "friendly_name": "If value matches_regex ^[1-5]$",
-              "type": "matches_regex",
+              "friendly_name": "If value matches regex ^[1-5]$",
+              "type": "regex",
               "value": "^[1-5]$"
             }
           ]
@@ -533,7 +533,7 @@
         },
         "url": "https://REPLACE_WITH_DEPLOYED_DOMAIN.twil.io/save-response",
         "method": "POST",
-        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "content_type": "application/x-www-form-urlencoded",
         "parameters": [
           {
             "key": "respondent_id",
@@ -574,7 +574,7 @@
         },
         "url": "https://REPLACE_WITH_DEPLOYED_DOMAIN.twil.io/save-response",
         "method": "POST",
-        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "content_type": "application/x-www-form-urlencoded",
         "parameters": [
           {
             "key": "respondent_id",
@@ -631,8 +631,8 @@
           "next": "Q4_Send",
           "conditions": [
             {
-              "friendly_name": "If value matches_regex ^[1-2]$",
-              "type": "matches_regex",
+              "friendly_name": "If value matches regex ^[1-2]$",
+              "type": "regex",
               "value": "^[1-2]$"
             }
           ]
@@ -678,8 +678,8 @@
           "next": "Q4_Save",
           "conditions": [
             {
-              "friendly_name": "If value matches_regex ^[1-5]$",
-              "type": "matches_regex",
+              "friendly_name": "If value matches regex ^[1-5]$",
+              "type": "regex",
               "value": "^[1-5]$"
             }
           ]
@@ -725,8 +725,8 @@
           "next": "Q4_SaveRetry",
           "conditions": [
             {
-              "friendly_name": "If value matches_regex ^[1-5]$",
-              "type": "matches_regex",
+              "friendly_name": "If value matches regex ^[1-5]$",
+              "type": "regex",
               "value": "^[1-5]$"
             }
           ]
@@ -760,7 +760,7 @@
         },
         "url": "https://REPLACE_WITH_DEPLOYED_DOMAIN.twil.io/save-response",
         "method": "POST",
-        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "content_type": "application/x-www-form-urlencoded",
         "parameters": [
           {
             "key": "respondent_id",
@@ -801,7 +801,7 @@
         },
         "url": "https://REPLACE_WITH_DEPLOYED_DOMAIN.twil.io/save-response",
         "method": "POST",
-        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "content_type": "application/x-www-form-urlencoded",
         "parameters": [
           {
             "key": "respondent_id",
@@ -858,8 +858,8 @@
           "next": "Q5_Send",
           "conditions": [
             {
-              "friendly_name": "If value matches_regex ^[1-2]$",
-              "type": "matches_regex",
+              "friendly_name": "If value matches regex ^[1-2]$",
+              "type": "regex",
               "value": "^[1-2]$"
             }
           ]
@@ -912,7 +912,7 @@
         },
         "url": "https://REPLACE_WITH_DEPLOYED_DOMAIN.twil.io/save-response",
         "method": "POST",
-        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "content_type": "application/x-www-form-urlencoded",
         "parameters": [
           {
             "key": "respondent_id",
@@ -953,7 +953,7 @@
         },
         "url": "https://REPLACE_WITH_DEPLOYED_DOMAIN.twil.io/save-response",
         "method": "POST",
-        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "content_type": "application/x-www-form-urlencoded",
         "parameters": [
           {
             "key": "respondent_id",

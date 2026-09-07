@@ -64,6 +64,25 @@ describe('studio-flow.json', () => {
     }
   });
 
+  it('uses Studio\'s actual "regex" condition type, not "matches_regex" (a real Twilio API 81022 rejection)', () => {
+    const splitStates = flow.states.filter((s) => s.type === 'split-based-on');
+    expect(splitStates.length).toBeGreaterThan(0);
+    for (const state of splitStates) {
+      const matchTransition = state.transitions.find((t) => t.event === 'match');
+      for (const condition of matchTransition.conditions) {
+        expect(condition.type).toBe('regex');
+      }
+    }
+  });
+
+  it('uses a content_type Twilio actually accepts on every make-http-request widget', () => {
+    const httpStates = flow.states.filter((s) => s.type === 'make-http-request');
+    expect(httpStates.length).toBeGreaterThan(0);
+    for (const state of httpStates) {
+      expect(state.properties.content_type).toBe('application/x-www-form-urlencoded');
+    }
+  });
+
   it('never sends a final message after the closing message (terminal state)', () => {
     const closing = flow.states.find((s) => s.name === 'Closing_Message');
     expect(closing.transitions).toEqual([]);
