@@ -97,7 +97,7 @@ cut a new deployment version (§3 step 12), then re-run `npm run deploy --skip-e
 To change the survey's wording, edit [`survey-content.yaml`](../survey-content.yaml)
 (not `studio-flow.json` directly — it's generated and gets overwritten), run
 `npm run generate:flow` to rebuild `studio-flow.json`, then `npm run deploy` to push
-it. Question order, branching, and retry/skip/timeout logic live in
+it. Question order, branching, and timeout logic live in
 `scripts/generate-studio-flow.js` instead — that file is code, not copy.
 
 ## 3. Google Sheets
@@ -185,18 +185,23 @@ analysis — see handoff, §8.
 
 ## 6. Known behaviors worth testing explicitly
 
-- **Invalid answer**: one re-prompt is sent for numeric questions (1–5); a second
-  invalid reply skips that question (recorded as blank) and the survey continues.
+- **Any reply is accepted, verbatim, for every question** — including free text on
+  the 1–5 questions. There's no reprompt or validation step; whatever's typed gets
+  saved as that question's answer. The Q3→Q4 and Q1→Q5 gates still specifically look
+  for a bare "1" or "2" to decide whether to ask the follow-up — a free-text reply to
+  Q1/Q3 simply doesn't match either, so the follow-up is skipped, same as any other
+  non-1/2 answer.
 - **No reply / timeout**: 24 hours after a question is sent with no reply, the
   execution ends silently — whatever was already answered (and already saved after
   each prior question) stays on record; no further texts are sent.
 - **Opt-out**: STOP/START/HELP is handled entirely by Twilio's Messaging Service
   opt-out feature, ahead of the Studio flow — confirm it's enabled (§1) and test it
   actually stops the conversation.
-- **Open-text residual PII risk**: Question 5 ("what moment are you most likely to
-  share?") is open text and could contain a name or other identifying detail a
-  respondent volunteers. It's still written to the Anonymous Results sheet as-is —
-  Comic Relief should spot-check Q5 responses before that sheet is shared onward.
+- **Open-text residual PII risk, on every question, not just Q5**: since any reply is
+  accepted verbatim, a respondent could type a name or other identifying detail into
+  the reply to *any* question, not only Q5 (the intentionally open-ended one). Every
+  answer is still written to the Anonymous Results sheet as typed — Comic Relief
+  should spot-check responses before that sheet is shared onward.
 - **Texting the number also starts the survey.** The flow's trigger fires on both a
   REST-started execution (the real `/trigger-send` path) and a plain inbound text —
   this is deliberate, so anyone can test the whole flow by just texting the number,
@@ -215,8 +220,8 @@ analysis — see handoff, §8.
   own phone — the survey starts immediately (see §6). Reply through a few branches,
   then check both Google Sheets for an `event="test"` row. `npm run deploy` can watch
   the Contacts sheet for you and confirm the row lands.
-- Walk every branch (each valid path, invalid-then-retry, invalid-twice-skip, timeout,
-  STOP) with dummy contacts and real test phone numbers.
+- Walk every branch (a numeric reply, a free-text reply, timeout, STOP) with dummy
+  contacts and real test phone numbers.
 - Also exercise the real `/trigger-send` path at least once with a dummy contact added
   via `/contacts`, not just the text-in shortcut — it's the one that runs for real
   events.

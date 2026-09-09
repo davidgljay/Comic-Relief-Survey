@@ -2,8 +2,9 @@
 #
 # Edit this file to change wording, then run `npm run generate:flow` to
 # regenerate studio-flow.json from it. Question order and branching logic
-# (Q3 -> Q4, Q1 -> Q5, retry/skip/timeout behavior) live in
-# scripts/generate-studio-flow.js, not here — this file is language only.
+# (Q3 -> Q4, Q1 -> Q5, timeout behavior) live in scripts/generate-studio-flow.js,
+# not here — this file is language only. Any reply is accepted as-is for every
+# question, including free text — there's no reprompt/validation step.
 # See survey-questions.md for the rationale behind each question.
 
 preamble: >-
@@ -16,13 +17,6 @@ preamble: >-
 # Used when a message is sent with no name to greet (e.g. the text-in test
 # path, where no registration name is available).
 greeting_name_default: there
-
-reprompt_invalid: >-
-  Sorry, I didn't quite catch that — please reply with just a number from
-  1 to 5.
-
-skip_message: >-
-  No worries — I'll skip that one.
 
 closing_message: >-
   That's it! Thanks so much for taking the time to complete this survey

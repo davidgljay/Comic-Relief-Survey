@@ -11,7 +11,7 @@ const outPath = path.join(__dirname, '..', 'studio-flow.json');
 const contentPath = path.join(__dirname, '..', 'survey-content.yaml');
 const content = yaml.load(fs.readFileSync(contentPath, 'utf8'));
 
-for (const key of ['preamble', 'greeting_name_default', 'reprompt_invalid', 'skip_message', 'closing_message', 'questions']) {
+for (const key of ['preamble', 'greeting_name_default', 'closing_message', 'questions']) {
   if (content[key] === undefined) {
     throw new Error(`survey-content.yaml is missing required key "${key}"`);
   }
@@ -60,27 +60,6 @@ function sendMessage(name, body, x) {
       body,
       to: '{{contact.channel.address}}',
       from: '{{flow.channel.address}}',
-    },
-  });
-}
-
-function splitValidate(name, inputWidget, x) {
-  states.push({
-    name,
-    type: 'split-based-on',
-    transitions: [
-      { event: 'noMatch', next: `${name}_nomatch_placeholder` },
-      {
-        event: 'match',
-        next: `${name}_match_placeholder`,
-        conditions: [
-          { friendly_name: 'If value matches regex ^[1-5]$', type: 'regex', value: '^[1-5]$', arguments: ['^[1-5]$'] },
-        ],
-      },
-    ],
-    properties: {
-      offset: offset(x),
-      input: `{{widgets.${inputWidget}.inbound.Body}}`,
     },
   });
 }
@@ -158,75 +137,66 @@ const baseParams = () => [
   { key: 'event', value: "{{trigger.parameters.event | default: 'test'}}" },
 ];
 
-// ---- Generic numeric question block (Q1-Q4) ----
-function numericQuestionBlock(qkey, questionText, opts) {
+// ---- Generic question block ----
+// Whatever the respondent replies is accepted and saved as-is — no format is
+// enforced (a full sentence is just as valid an answer as a single digit).
+// The Q3->Q4 and Q1->Q5 gates below still look for a plain "1" or "2" reply
+// to decide whether to ask the follow-up; a free-text reply simply doesn't
+// match either and the gate falls through as if that answer weren't 1/2.
+function questionBlock(qkey, questionText, opts) {
   const P = qkey.toUpperCase();
   const sendBody = opts.withPreamble
     ? `Hi {{trigger.parameters.name | default: '${content.greeting_name_default}'}}! ${content.preamble}\n\n${questionText}`
     : questionText;
 
   sendAndWait(`${P}_Send`, sendBody, opts.x);
-  splitValidate(`${P}_Validate`, `${P}_Send`, opts.x);
-  sendAndWait(`${P}_Reprompt`, content.reprompt_invalid, opts.x + 300);
-  splitValidate(`${P}_ValidateRetry`, `${P}_Reprompt`, opts.x + 300);
   httpSave(`${P}_Save`, [...baseParams(), { key: qkey, value: `{{widgets.${P}_Send.inbound.Body}}` }], opts.x);
-  httpSave(`${P}_SaveRetry`, [...baseParams(), { key: qkey, value: `{{widgets.${P}_Reprompt.inbound.Body}}` }], opts.x + 300);
-  sendMessage(`${P}_Skip`, content.skip_message, opts.x + 600);
 
-  wire(`${P}_Send`, 'incomingMessage', `${P}_Validate`);
-  wire(`${P}_Validate`, 'match', `${P}_Save`);
-  wire(`${P}_Validate`, 'noMatch', `${P}_Reprompt`);
-  wire(`${P}_Reprompt`, 'incomingMessage', `${P}_ValidateRetry`);
-  wire(`${P}_ValidateRetry`, 'match', `${P}_SaveRetry`);
-  wire(`${P}_ValidateRetry`, 'noMatch', `${P}_Skip`);
+  wire(`${P}_Send`, 'incomingMessage', `${P}_Save`);
   wire(`${P}_Save`, 'success', opts.next);
   wire(`${P}_Save`, 'failed', opts.next);
-  wire(`${P}_SaveRetry`, 'success', opts.next);
-  wire(`${P}_SaveRetry`, 'failed', opts.next);
-  wire(`${P}_Skip`, 'sent', opts.next);
-  wire(`${P}_Skip`, 'failed', opts.next);
 }
 
-numericQuestionBlock('q1', content.questions.q1, {
+questionBlock('q1', content.questions.q1, {
   x: 0,
   withPreamble: true,
   next: 'Q2_Send',
 });
 
-numericQuestionBlock('q2', content.questions.q2, {
+questionBlock('q2', content.questions.q2, {
   x: 1200,
   withPreamble: false,
   next: 'Q3_Send',
 });
 
-numericQuestionBlock('q3', content.questions.q3, {
+questionBlock('q3', content.questions.q3, {
   x: 2400,
   withPreamble: false,
   next: 'Split_Q3Gate',
 });
 
 // ---- Gate on Q3 -> Q4 ----
-splitGate('Split_Q3Gate', '{{widgets.Q3_Save.parsed.q3}}{{widgets.Q3_SaveRetry.parsed.q3}}', 2400);
+splitGate('Split_Q3Gate', '{{widgets.Q3_Save.parsed.q3}}', 2400);
 wire('Split_Q3Gate', 'match', 'Q4_Send');
 wire('Split_Q3Gate', 'noMatch', 'Split_Q1Gate');
 
-numericQuestionBlock('q4', content.questions.q4, {
+questionBlock('q4', content.questions.q4, {
   x: 3600,
   withPreamble: false,
   next: 'Split_Q1Gate',
 });
 
 // ---- Gate on Q1 -> Q5 ----
-splitGate('Split_Q1Gate', '{{widgets.Q1_Save.parsed.q1}}{{widgets.Q1_SaveRetry.parsed.q1}}', 4800);
+splitGate('Split_Q1Gate', '{{widgets.Q1_Save.parsed.q1}}', 4800);
 wire('Split_Q1Gate', 'match', 'Q5_Send');
 wire('Split_Q1Gate', 'noMatch', 'Closing_Save');
 
-// ---- Q5 (open text, no retry) ----
-sendAndWait('Q5_Send', content.questions.q5, 6000);
-httpSave('Q5_Save', [...baseParams(), { key: 'q5', value: '{{widgets.Q5_Send.inbound.Body}}' }], 6000);
-wire('Q5_Send', 'incomingMessage', 'Q5_Save');
-wire('Q5_Save', 'success', 'Closing_Save');
-wire('Q5_Save', 'failed', 'Closing_Save');
+// ---- Q5 (open text) ----
+questionBlock('q5', content.questions.q5, {
+  x: 6000,
+  withPreamble: false,
+  next: 'Closing_Save',
+});
 
 // ---- Closing ----
 httpSave('Closing_Save', [...baseParams(), { key: 'completed', value: 'true' }], 7200);
