@@ -50,15 +50,20 @@ have nothing to point at:
 It asks for these values in order, printing where to find each one and defaulting to
 whatever's already in `.env` if you re-run it:
 
-1. **Twilio Account SID** — console home page (starts `AC`; *not* the API keys page,
-   whose SIDs start `SK` and won't work here).
-2. **Twilio Auth Token** — same console page, "view" to reveal it.
-3. **Twilio phone number** — E.164 format, e.g. `+15551234567`.
-4. **Studio Flow SID** — leave blank on a first run; the script creates the flow and
+1. **Twilio Account SID** — console home page (starts `AC`). Always required, even
+   if you're using an API Key below instead of a plain Auth Token.
+2. **API Key SID** — optional, leave blank if your console still shows a plain Auth
+   Token (most accounts). If it doesn't, create a **Standard** API Key (Console >
+   Account > API keys & tokens > Create API key) and paste its SID here.
+3. **Twilio Auth Token** (or the API Key's Secret, if you set one above) — same
+   console page as Account SID, "view" to reveal the Auth Token; or the Secret shown
+   once when you created the API Key.
+4. **Twilio phone number** — E.164 format, e.g. `+15551234567`.
+5. **Studio Flow SID** — leave blank on a first run; the script creates the flow and
    fills this in itself.
-5. **Contacts & Results Google Sheet** and **Anonymous Results Google Sheet** — paste
+6. **Contacts & Results Google Sheet** and **Anonymous Results Google Sheet** — paste
    either Sheet's full URL or just its ID, from step 0.2.
-6. **Apps Script Web App URL** — the `/exec` URL from step 0.2.
+7. **Apps Script Web App URL** — the `/exec` URL from step 0.2.
 
 `APPS_SCRIPT_SECRET` and `TRIGGER_SEND_SECRET` are **not** prompted for at all — the
 script generates both automatically and prints them right after, labeled, so you can

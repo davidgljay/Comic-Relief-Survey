@@ -16,28 +16,46 @@ const ROOT = path.join(__dirname, '..');
 const ENV_PATH = path.join(ROOT, '.env');
 const FLOW_PATH = path.join(ROOT, 'studio-flow.json');
 
-// ACCOUNT_SID/AUTH_TOKEN need FULL account access — they're used both to run
-// `twilio-run deploy` (create/update the Serverless Service, Functions,
-// Assets, Environment, Build, and Deployment) and to create/update the Studio
-// Flow via the REST API. Twilio has no Restricted API Key permission grant
-// that cleanly covers both of those together, so there's no narrower scope to
-// hand out here — whatever credential is used, it has full access to the
-// account. (A Standard API Key SID+Secret pair carries that same full scope
-// and could replace the Auth Token below for independent revocability, but
-// it authenticates as a *different* username/password pair — API Key SID as
-// username, API Key Secret as password, not paired with the Account SID — so
-// it isn't a drop-in swap for this field; this script only supports Account
-// SID + Auth Token today.) Per docs/twilio-setup.md §8: this should be a
-// Comic Relief-owned account, and this Auth Token should be rotated once
-// David's collaborator access is revoked at handoff.
+// The Twilio credential used here needs FULL account access — it's used both
+// to run `twilio-run deploy` (create/update the Serverless Service,
+// Functions, Assets, Environment, Build, and Deployment) and to create/update
+// the Studio Flow and phone number webhook via the REST API. Twilio has no
+// Restricted API Key permission grant that cleanly covers both of those
+// together, so there's no narrower scope to hand out — whatever credential
+// is used, it has full access to the account. Per docs/twilio-setup.md §8:
+// this should be a Comic Relief-owned account, and this credential should be
+// rotated/revoked once David's collaborator access is revoked at handoff.
+//
+// Two ways to authenticate, both supported here:
+//  - Account SID + Auth Token (the classic pair) — leave API_KEY_SID blank.
+//  - Account SID + a Standard API Key's SID/Secret — some newer Twilio
+//    accounts don't surface a plain Auth Token in the console at all and
+//    push you toward creating an API Key instead (Console > Account > API
+//    keys & tokens > Create API key, type "Standard"). Put the key's SID in
+//    API_KEY_SID and its Secret in AUTH_TOKEN below. ACCOUNT_SID is still
+//    required either way — an API Key SID (starts SK) authenticates the
+//    request, but resource URLs and the phone number webhook still need the
+//    real Account SID, so the two are never a substitute for each other.
 const ENV_VARS = [
   {
     key: 'ACCOUNT_SID',
     prompt: 'Twilio Account SID',
-    help: 'Twilio Console home page, top left — NOT the "API keys & tokens" page (that page\'s API Key SIDs start with SK and won\'t work here). Starts with AC. Needs full account access — see note above.',
+    help: 'Twilio Console home page, top left. Starts with AC. Required either way — see note above — even if you\'re authenticating with an API Key instead of the Auth Token below.',
     validate: (v) => (/^AC[0-9a-f]{32}$/i.test(v) ? null : 'must start with "AC" followed by 32 hex characters (this is the Account SID, not an API Key SID)'),
   },
-  { key: 'AUTH_TOKEN', prompt: 'Twilio Auth Token', help: 'Twilio Console home page, next to Account SID — click "view" to reveal it. Needs full account access — see note above.', secret: true },
+  {
+    key: 'API_KEY_SID',
+    prompt: 'API Key SID (optional — only if your console has no plain Auth Token)',
+    help: 'Leave blank if you have a classic Auth Token (most accounts). If Twilio only offers API keys, create a Standard one (Console > Account > API keys & tokens > Create API key) and put its SID here — then put its Secret, not an Auth Token, in the next prompt.',
+    optional: true,
+    validate: (v) => (/^SK[0-9a-f]{32}$/i.test(v) ? null : 'must start with "SK" followed by 32 hex characters'),
+  },
+  {
+    key: 'AUTH_TOKEN',
+    prompt: 'Twilio Auth Token (or the API Key\'s Secret, if you set API_KEY_SID above)',
+    help: 'Twilio Console home page, next to Account SID — click "view" to reveal it. If you set an API_KEY_SID above instead, put that key\'s Secret here (only shown once, at creation — Console > Account > API keys & tokens).',
+    secret: true,
+  },
   {
     key: 'TWILIO_PHONE_NUMBER',
     prompt: 'Twilio phone number (E.164)',
@@ -166,6 +184,18 @@ function run(cmd, args) {
   });
 }
 
+// Resolves the actual (username, password) Basic Auth pair to authenticate
+// with, from either credential style in ENV_VARS above. accountSid is
+// ALWAYS the real Account SID, needed for REST resource paths/webhook URLs
+// regardless of which pair authenticates the request — the Twilio Node SDK
+// otherwise defaults accountSid to whatever `username` is, which is wrong
+// (and unusable for those paths) when username is an API Key SID.
+function twilioCredentials(values) {
+  return values.API_KEY_SID
+    ? { username: values.API_KEY_SID, password: values.AUTH_TOKEN, accountSid: values.ACCOUNT_SID }
+    : { username: values.ACCOUNT_SID, password: values.AUTH_TOKEN, accountSid: values.ACCOUNT_SID };
+}
+
 async function deployFunctions(values) {
   console.log('\n--- Deploying Twilio Functions (npx twilio-run deploy) ---\n');
   // `twilio-run` (the Serverless Toolkit, in devDependencies) has its own
@@ -184,13 +214,14 @@ async function deployFunctions(values) {
   // always deploys to one service (named from package.json's "name"), that
   // reuse should always happen, so it's forced explicitly rather than
   // depending on a cache file surviving.
+  const creds = twilioCredentials(values);
   const output = await run('npx', [
     'twilio-run',
     'deploy',
     '--username',
-    values.ACCOUNT_SID,
+    creds.username,
     '--password',
-    values.AUTH_TOKEN,
+    creds.password,
     '--override-existing-project',
   ]);
   const domain = extractDomain(output);
@@ -215,7 +246,8 @@ function logStudioApiError(err) {
 
 async function syncStudioFlow(values, domain) {
   const twilio = require('twilio');
-  const client = twilio(values.ACCOUNT_SID, values.AUTH_TOKEN);
+  const creds = twilioCredentials(values);
+  const client = twilio(creds.username, creds.password, { accountSid: creds.accountSid });
   const flowJson = substituteDomain(fs.readFileSync(FLOW_PATH, 'utf8'), domain);
 
   // Studio's dedicated Validate endpoint (POST /v2/Flows/Validate) checks a
@@ -265,7 +297,8 @@ async function syncStudioFlow(values, domain) {
 // it if someone changed it (or it was never set) since the last deploy.
 async function attachFlowToPhoneNumber(values, flowSid) {
   const twilio = require('twilio');
-  const client = twilio(values.ACCOUNT_SID, values.AUTH_TOKEN);
+  const creds = twilioCredentials(values);
+  const client = twilio(creds.username, creds.password, { accountSid: creds.accountSid });
 
   console.log('\n--- Attaching the Studio Flow to the phone number ---\n');
   const numbers = await client.incomingPhoneNumbers.list({ phoneNumber: values.TWILIO_PHONE_NUMBER });
@@ -413,4 +446,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { ENV_VARS, REQUIRED_KEYS, initializeSheetHeaders };
+module.exports = { ENV_VARS, REQUIRED_KEYS, initializeSheetHeaders, twilioCredentials };
