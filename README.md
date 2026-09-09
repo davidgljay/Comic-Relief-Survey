@@ -20,24 +20,86 @@ over SMS (no link-out) via Twilio Studio.
 - [`scripts/`](scripts/) — `generate-studio-flow.js` (builds `studio-flow.json` from
   `survey-content.yaml`) and `deploy.js` (interactive deploy, see below).
 
-## Quick start
+## Setup walkthrough
 
 ```bash
 npm install
 npm run deploy
 ```
 
-`npm run deploy` is interactive: it walks you through setting each value in `.env`
-(where to find it is printed for each one — paste a Sheet's URL or its bare ID,
-either works), inserts the header row into both Google Sheets, runs the test suite,
-deploys the Functions, and creates or updates the Studio Flow to match — substituting
-in the real deployed domain automatically. `APPS_SCRIPT_SECRET`/`TRIGGER_SEND_SECRET`
-are never prompted for — they're generated automatically and printed afterward in
-case you need to copy them. It doesn't deploy the Google side — `apps-script/Code.gs`
-is a one-time copy/paste into the Apps Script editor, done once by whoever owns the
-Sheets, **before** running `npm run deploy` (see
-[`docs/twilio-setup.md`](docs/twilio-setup.md) §3 for the full walkthrough, including
-what to set up in the Twilio console beforehand).
+### 0. Before you run it
+
+`npm run deploy` can't do everything — two things have to exist first, or its prompts
+have nothing to point at:
+
+1. **A Twilio account owned by Comic Relief**, with A2P 10DLC brand + campaign
+   registration already started (5–10 business days — the longest lead time in the
+   whole setup, start it before anything else). Full detail:
+   [`docs/twilio-setup.md`](docs/twilio-setup.md) §1.
+2. **Two blank Google Sheets**, and [`apps-script/Code.gs`](apps-script/Code.gs)
+   deployed as a Web App against them. Briefly: create the Sheets, copy their IDs from
+   the URL, open either one's **Extensions > Apps Script**, paste in `Code.gs`, fill in
+   its `CONFIG` (a placeholder `SHARED_SECRET` is fine for now — step 3 below replaces
+   it), then **Deploy > New deployment > Web app** (Execute as: Me; Access: Anyone) and
+   copy the `/exec` URL it gives you. Full click-by-click detail, including the
+   one-time "Google hasn't verified this app" screen you'll hit:
+   [`docs/twilio-setup.md`](docs/twilio-setup.md) §3.
+
+### 1. Run `npm run deploy` and answer its prompts
+
+It asks for these values in order, printing where to find each one and defaulting to
+whatever's already in `.env` if you re-run it:
+
+1. **Twilio Account SID** — console home page (starts `AC`; *not* the API keys page,
+   whose SIDs start `SK` and won't work here).
+2. **Twilio Auth Token** — same console page, "view" to reveal it.
+3. **Twilio phone number** — E.164 format, e.g. `+15551234567`.
+4. **Studio Flow SID** — leave blank on a first run; the script creates the flow and
+   fills this in itself.
+5. **Contacts & Results Google Sheet** and **Anonymous Results Google Sheet** — paste
+   either Sheet's full URL or just its ID, from step 0.2.
+6. **Apps Script Web App URL** — the `/exec` URL from step 0.2.
+
+`APPS_SCRIPT_SECRET` and `TRIGGER_SEND_SECRET` are **not** prompted for at all — the
+script generates both automatically and prints them right after, labeled, so you can
+copy them if needed.
+
+### 2. Copy the generated Apps Script secret into `Code.gs`
+
+Take the `APPS_SCRIPT_SECRET` value just printed, paste it into `Code.gs`'s
+`CONFIG.SHARED_SECRET` (replacing the placeholder from step 0.2), save, then **Deploy
+> Manage deployments > pencil icon > Version: New version > Deploy** — saving the file
+alone doesn't update the live URL.
+
+**On a genuinely first run, expect the next part to fail once here** — the script
+already moved on using the secret it just generated, but `Code.gs` was still running
+the placeholder when it did. That's normal, not a bug: finish this step, then re-run
+`npm run deploy --skip-env` (reuses the `.env` it already wrote, no re-prompting) to
+pick up where it left off.
+
+### 3. What it does after you answer the prompts
+
+In order, automatically:
+
+- Runs `npm test`.
+- Asks for a final "about to deploy" confirmation, naming the account and Apps Script
+  URL it's about to touch.
+- Inserts the header row into both Sheets (skipped if already present; refuses to
+  touch a sheet whose row 1 holds something else).
+- Deploys the Twilio Functions (`twilio-run deploy`).
+- Validates, then creates or updates, the Studio Flow — substituting the real deployed
+  domain into `studio-flow.json` in the process (the tracked file on disk keeps the
+  `REPLACE_WITH_DEPLOYED_DOMAIN` placeholder; nothing to commit here).
+- Redeploys the Functions once more if the Flow SID just changed, so the trigger
+  endpoint has the right one.
+- **Attaches the Studio Flow to the phone number's "A message comes in" webhook** —
+  easy to miss if done by hand, since creating a Flow doesn't attach it to any number
+  by itself; texting the number does nothing at all until this step runs.
+- Offers to watch the Contacts sheet for the row your first live test text produces.
+
+Re-running later is safe and idempotent — it updates the existing Studio Flow rather
+than creating a new one, skips already-correct Sheet headers, and just re-confirms the
+phone number webhook.
 
 Changed the wording in `survey-content.yaml`? Run `npm run generate:flow` to rebuild
 `studio-flow.json`, then `npm run deploy` (with `--skip-env` if `.env` is already set)
@@ -49,6 +111,14 @@ After deploying, just **text the Twilio number** — no API call needed. The flo
 starts on any inbound text and walks the same survey logic, saving to `event="test"`
 rows in both Sheets so it never mixes with real event data. `npm run deploy` offers to
 watch the Contacts sheet for that row automatically once you've sent your first reply.
+
+**No reply at all, no error anywhere?** Check the number's status in Console > Phone
+Numbers > Manage > Active Numbers: if it says **"Messaging disabled — Complete A2P
+registration,"** that's the cause, not the code — Twilio blocks all SMS on the number,
+both directions, until A2P 10DLC registration clears (§0 above). Nothing to fix here;
+just wait it out or finish that registration. You can still sanity-check the survey
+logic itself in the meantime via Studio's own **Simulator** (Console > Studio > open
+the flow > Simulator), which doesn't touch the phone number at all.
 
 ## Tests
 
