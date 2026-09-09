@@ -23,22 +23,6 @@ describe('ACCOUNT_SID validation', () => {
   });
 });
 
-describe('API_KEY_SID validation', () => {
-  const { validate, optional } = defFor('API_KEY_SID');
-
-  it('is optional — most accounts still have a plain Auth Token', () => {
-    expect(optional).toBe(true);
-  });
-
-  it('accepts a real API Key SID', () => {
-    expect(validate('SK' + '0'.repeat(32))).toBeNull();
-  });
-
-  it('rejects an Account SID typed into the wrong field', () => {
-    expect(validate('AC' + '0'.repeat(32))).not.toBeNull();
-  });
-});
-
 describe('TWILIO_PHONE_NUMBER validation', () => {
   const { validate } = defFor('TWILIO_PHONE_NUMBER');
 
@@ -98,19 +82,5 @@ describe('APPS_SCRIPT_URL validation', () => {
 
   it('rejects a non-Google URL', () => {
     expect(validate('https://example.com/exec')).not.toBeNull();
-  });
-});
-
-describe('twilioCredentials', () => {
-  const { twilioCredentials } = require('../../scripts/deploy.js');
-
-  it('uses Account SID + Auth Token when no API Key is configured', () => {
-    const creds = twilioCredentials({ ACCOUNT_SID: 'AC1', AUTH_TOKEN: 'token1' });
-    expect(creds).toEqual({ username: 'AC1', password: 'token1', accountSid: 'AC1' });
-  });
-
-  it('uses the API Key SID/Secret as the credential pair, but keeps the real Account SID separately', () => {
-    const creds = twilioCredentials({ ACCOUNT_SID: 'AC1', API_KEY_SID: 'SK1', AUTH_TOKEN: 'secret1' });
-    expect(creds).toEqual({ username: 'SK1', password: 'secret1', accountSid: 'AC1' });
   });
 });

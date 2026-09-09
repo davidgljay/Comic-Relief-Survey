@@ -12,20 +12,11 @@ These have the longest lead time — start them first, before scheduling a pilot
 - **Create the Twilio account under Comic Relief's own ownership.** David is added as a
   collaborator to build the flow, but the account itself — billing, credentials — belongs
   to Comic Relief from day one.
-- **The Twilio credential `npm run deploy` uses needs full account access** — it runs
-  `twilio-run deploy`, creates/updates the Studio Flow, and attaches it to the phone
-  number's webhook, and Twilio has no Restricted API Key grant that covers all of
-  that. There's no way to hand it out more narrowly; the mitigation is procedural, not
-  technical — rotate/revoke it once David's collaborator access is revoked (§8).
-  - **If the console doesn't show a plain Auth Token at all** (some newer Twilio
-    accounts only offer API Keys): create a **Standard** API Key — Console > Account
-    > API keys & tokens > Create API key, key type **Standard**. There's no
-    permissions picker for a Standard key; it carries the same full-account access an
-    Auth Token would, automatically. Put its SID in `API_KEY_SID` and its Secret (only
-    shown once, at creation — copy it immediately) in `AUTH_TOKEN` when `npm run
-    deploy` prompts for them. A "Restricted" key type also exists but needs a Twilio
-    support request to enable and doesn't reliably cover Serverless deploy actions —
-    not worth pursuing for this project.
+- **The `ACCOUNT_SID`/`AUTH_TOKEN` used by `npm run deploy` need full account access** —
+  they run `twilio-run deploy` and create/update the Studio Flow via the REST
+  API, and Twilio has no Restricted API Key grant that covers both together. There's no
+  way to hand these out more narrowly; the mitigation is procedural, not technical —
+  rotate this Auth Token once David's collaborator access is revoked (§8).
 - **Start A2P 10DLC brand + campaign registration immediately.** Budget 5–10 business
   days. Do not schedule a pilot event before this clears.
   - Classify the campaign use-case as **business-initiated, consent-based survey
@@ -77,9 +68,8 @@ cut a new deployment version (§3 step 12), then re-run `npm run deploy --skip-e
      touch a sheet whose row 1 has different content rather than risk overwriting
      real data.
    - Runs `twilio-run deploy` (the Serverless Toolkit's own standalone CLI — not the
-     full Twilio CLI, which isn't required here), passing the credential from `.env`
-     (Account SID + Auth Token, or API Key SID + Secret) directly via
-     `--username`/`--password` (no `twilio login` needed) and
+     full Twilio CLI, which isn't required here), passing `ACCOUNT_SID`/`AUTH_TOKEN`
+     from `.env` directly via `--username`/`--password` (no `twilio login` needed) and
      `--override-existing-project` (always deploys to the one Service this project
      uses, named from `package.json`, rather than erroring "Service already exists" —
      `twilio-run`'s own way of tracking that is a local, gitignored cache file that
