@@ -12,7 +12,8 @@
   "scripts": {
     "test": "jest",
     "generate:flow": "node scripts/generate-studio-flow.js",
-    "deploy": "node scripts/deploy.js"
+    "deploy": "node scripts/deploy.js",
+    "simulate": "node scripts/simulate-survey.js"
   },
   "devDependencies": {
     "twilio-run": "^5.0.1",

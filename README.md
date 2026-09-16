@@ -18,7 +18,9 @@ over SMS (no link-out) via Twilio Studio.
 - [`apps-script/Code.gs`](apps-script/Code.gs) — Google Apps Script Web App that owns
   both Sheets. No Google Cloud project or service account needed — see below.
 - [`scripts/`](scripts/) — `generate-studio-flow.js` (builds `studio-flow.json` from
-  `survey-content.yaml`) and `deploy.js` (interactive deploy, see below).
+  `survey-content.yaml`), `deploy.js` (interactive deploy, see below), and
+  `simulate-survey.js` (runs the survey locally, no Twilio/Google account needed —
+  see below).
 
 ## Setup walkthrough
 
@@ -105,6 +107,22 @@ Changed the wording in `survey-content.yaml`? Run `npm run generate:flow` to reb
 `studio-flow.json`, then `npm run deploy` (with `--skip-env` if `.env` is already set)
 to push it.
 
+## Simulating a survey locally
+
+```bash
+npm run simulate                                          # interactive — type each reply
+npm run simulate -- --replies "3,4,1,2,It was great"      # scripted (note the extra --)
+```
+
+Runs a full conversation against the real `studio-flow.json` and the real
+`functions/save-response.js` handler — no Twilio account, no Google Sheet, no network
+calls at all. Prints each question as it's asked, then exactly what would have been
+written to both Google Sheets (the full Contacts row, and the PII-free Anonymous row).
+Useful for checking question order and the Q3→Q4 skip gate right after editing
+`survey-content.yaml` or `scripts/generate-studio-flow.js`, without a deploy. A
+scripted reply list only needs to cover what actually gets asked — if Q4 ends up
+skipped, any extra reply after Q3 is just unused.
+
 ## Testing it live
 
 After deploying, just **text the Twilio number** — no API call needed. The flow
@@ -117,8 +135,9 @@ Numbers > Manage > Active Numbers: if it says **"Messaging disabled — Complete
 registration,"** that's the cause, not the code — Twilio blocks all SMS on the number,
 both directions, until A2P 10DLC registration clears (§0 above). Nothing to fix here;
 just wait it out or finish that registration. You can still sanity-check the survey
-logic itself in the meantime via Studio's own **Simulator** (Console > Studio > open
-the flow > Simulator), which doesn't touch the phone number at all.
+logic itself in the meantime — fastest is `npm run simulate` (above), or Studio's own
+**Simulator** (Console > Studio > open the flow > Simulator) if you want to see it
+inside Twilio's UI — neither touches the phone number.
 
 ## Tests
 
@@ -136,6 +155,8 @@ every save posts to `/save-response` with no PII in the URL); the deploy script'
 `.env` read/write, Sheet-URL-to-ID parsing, and field validators (including the exact
 API-Key-SID-vs-Account-SID mistake that motivated them); domain-substitution logic;
 and that the flow generator actually reads `survey-content.yaml` rather than a
-hardcoded copy. None of this calls a live Twilio account, a live Apps Script
+hardcoded copy; and `scripts/simulate-survey.js`'s own coverage of the Q3→Q4 gate
+(asked, skipped, and the "leads with a digit but has more text" case) against the real
+flow and handler. None of this calls a live Twilio account, a live Apps Script
 deployment, or a real Google Sheet — see [`docs/twilio-setup.md`](docs/twilio-setup.md)
 §7 for the manual end-to-end pass required before any real contact data is loaded.

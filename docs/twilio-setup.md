@@ -219,10 +219,14 @@ analysis — see handoff, §8.
 
 ## 7. Test before any real data flows
 
-- **Fastest check**: after `npm run deploy`, just text the Twilio number from your
-  own phone — the survey starts immediately (see §6). Reply through a few branches,
-  then check both Google Sheets for an `event="test"` row. `npm run deploy` can watch
-  the Contacts sheet for you and confirm the row lands.
+- **Before any of this — before an account even exists**: `npm run simulate` runs the
+  survey against the real flow and the real `save-response.js` handler entirely
+  locally (no Twilio, no Google, no network). Good for checking question order and
+  the Q3→Q4 gate right after an edit; see the README.
+- **Fastest live check**: after `npm run deploy`, just text the Twilio number from
+  your own phone — the survey starts immediately (see §6). Reply through a few
+  branches, then check both Google Sheets for an `event="test"` row. `npm run deploy`
+  can watch the Contacts sheet for you and confirm the row lands.
 - Walk every branch (a numeric reply, a free-text reply, timeout, STOP) with dummy
   contacts and real test phone numbers.
 - Also exercise the real `/trigger-send` path at least once with a dummy contact added
