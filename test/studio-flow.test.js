@@ -41,7 +41,44 @@ describe('studio-flow.json', () => {
     // evaluates false at runtime: it ends up testing whether the pattern
     // string matches itself, never whether the reply does.
     expect(match.conditions[0].value).toBe(gate.properties.input);
-    expect(match.conditions[0].arguments).toEqual(['^[1-2]$']);
+    expect(Array.isArray(match.conditions[0].arguments)).toBe(true);
+    expect(match.conditions[0].arguments[0]).not.toBe(match.conditions[0].value);
+  });
+
+  describe('the Q3->Q4 gate\'s regex, simulating how Twilio evaluates it against a reply', () => {
+    // Twilio's "regex" condition type runs a standard regex match of
+    // arguments[0] against "value" (the resolved reply). This reconstructs
+    // that regex from the actual deployed pattern and drives it with
+    // representative replies, so a change to the pattern that breaks
+    // matching is caught here instead of only live, on a real text.
+    const gate = flow.states.find((s) => s.name === 'Split_Q3Gate');
+    const pattern = new RegExp(gate.transitions.find((t) => t.event === 'match').conditions[0].arguments[0]);
+
+    it.each([
+      ['1', true],
+      ['2', true],
+      [' 1', true],
+      ["1 - Here's a description of why", true],
+      ['2 because it was fun', true],
+      ['1.', true],
+      ['1,', true],
+    ])('treats %j as a "1 or 2" answer (asks Q4)', (reply, expected) => {
+      expect(pattern.test(reply)).toBe(expected);
+    });
+
+    it.each([
+      ['3', false],
+      ['4', false],
+      ['5', false],
+      ['12', false],
+      ['15 minutes', false],
+      ['21', false],
+      ['no', false],
+      ['', false],
+      ['I think 1', false],
+    ])('treats %j as not a "1 or 2" answer (skips Q4)', (reply, expected) => {
+      expect(pattern.test(reply)).toBe(expected);
+    });
   });
 
   it('always asks Question 5 (the final open-text question), regardless of Question 1', () => {
@@ -95,7 +132,6 @@ describe('studio-flow.json', () => {
         // "arguments" is the regex pattern (the operand); "value" is the
         // reply being tested — they're deliberately NOT the same string
         // (see the Split_Q3Gate test above for why conflating them is a bug).
-        expect(condition.arguments).toEqual(['^[1-2]$']);
         expect(condition.value).not.toEqual(condition.arguments[0]);
       }
     }

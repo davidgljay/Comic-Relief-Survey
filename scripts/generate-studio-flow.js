@@ -64,6 +64,12 @@ function sendMessage(name, body, x) {
   });
 }
 
+// Matches a reply that STARTS with "1" or "2", whether that's the whole
+// reply or the digit is followed by more text ("1 - here's why", "2 because
+// ...", "1."). The digit must be immediately followed by a non-digit or the
+// end of the string, so "12" or "15 minutes" don't false-positive as "1".
+const GATE_PATTERN = '^\\s*[12](\\D|$)';
+
 function splitGate(name, inputExpr, x) {
   states.push({
     name,
@@ -74,7 +80,7 @@ function splitGate(name, inputExpr, x) {
         event: 'match',
         next: `${name}_match_placeholder`,
         conditions: [
-          { friendly_name: 'If value matches regex ^[1-2]$', type: 'regex', value: inputExpr, arguments: ['^[1-2]$'] },
+          { friendly_name: 'If value starts with 1 or 2', type: 'regex', value: inputExpr, arguments: [GATE_PATTERN] },
         ],
       },
     ],

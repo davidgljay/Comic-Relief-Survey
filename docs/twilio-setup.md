@@ -188,10 +188,12 @@ analysis — see handoff, §8.
 - **Any reply is accepted, verbatim, for every question** — including free text on
   the 1–5 questions. There's no reprompt or validation step; whatever's typed gets
   saved as that question's answer.
-- **Question 4 is conditional; Question 5 is not.** The Q3→Q4 gate looks for a bare
-  "1" or "2" reply to Q3 to decide whether to ask Q4 — a free-text reply to Q3 simply
-  doesn't match, so Q4 is skipped, same as any other non-1/2 answer. Question 5 (the
-  final open-text question) is always asked regardless of any prior answer.
+- **Question 4 is conditional; Question 5 is not.** The Q3→Q4 gate checks whether Q3's
+  reply *starts with* "1" or "2" — matching a bare "1", or "1 - here's why", or "2
+  because it was fun," but not "12" or "15 minutes" (the digit has to be immediately
+  followed by a non-digit or the end of the reply). Anything else skips Q4, same as
+  any other non-1/2 answer. Question 5 (the final open-text question) is always asked
+  regardless of any prior answer.
 - **No reply / timeout**: 24 hours after a question is sent with no reply, the
   execution ends silently — whatever was already answered (and already saved after
   each prior question) stays on record; no further texts are sent.

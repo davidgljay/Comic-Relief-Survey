@@ -214,11 +214,11 @@
           "next": "Q4_Send",
           "conditions": [
             {
-              "friendly_name": "If value matches regex ^[1-2]$",
+              "friendly_name": "If value starts with 1 or 2",
               "type": "regex",
               "value": "{{widgets.Q3_Save.parsed.q3}}",
               "arguments": [
-                "^[1-2]$"
+                "^\\s*[12](\\D|$)"
               ]
             }
           ]
