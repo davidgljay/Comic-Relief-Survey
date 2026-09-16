@@ -74,7 +74,7 @@ function splitGate(name, inputExpr, x) {
         event: 'match',
         next: `${name}_match_placeholder`,
         conditions: [
-          { friendly_name: 'If value matches regex ^[1-2]$', type: 'regex', value: '^[1-2]$', arguments: ['^[1-2]$'] },
+          { friendly_name: 'If value matches regex ^[1-2]$', type: 'regex', value: inputExpr, arguments: ['^[1-2]$'] },
         ],
       },
     ],
@@ -140,9 +140,10 @@ const baseParams = () => [
 // ---- Generic question block ----
 // Whatever the respondent replies is accepted and saved as-is — no format is
 // enforced (a full sentence is just as valid an answer as a single digit).
-// The Q3->Q4 and Q1->Q5 gates below still look for a plain "1" or "2" reply
-// to decide whether to ask the follow-up; a free-text reply simply doesn't
-// match either and the gate falls through as if that answer weren't 1/2.
+// The Q3->Q4 gate below still looks for a plain "1" or "2" reply to Q3 to
+// decide whether to ask the follow-up; a free-text reply simply doesn't
+// match and the gate falls through as if that answer weren't 1/2. Q5 (the
+// final open-text question) is always asked, unconditionally.
 function questionBlock(qkey, questionText, opts) {
   const P = qkey.toUpperCase();
   const sendBody = opts.withPreamble
@@ -178,20 +179,15 @@ questionBlock('q3', content.questions.q3, {
 // ---- Gate on Q3 -> Q4 ----
 splitGate('Split_Q3Gate', '{{widgets.Q3_Save.parsed.q3}}', 2400);
 wire('Split_Q3Gate', 'match', 'Q4_Send');
-wire('Split_Q3Gate', 'noMatch', 'Split_Q1Gate');
+wire('Split_Q3Gate', 'noMatch', 'Q5_Send');
 
 questionBlock('q4', content.questions.q4, {
   x: 3600,
   withPreamble: false,
-  next: 'Split_Q1Gate',
+  next: 'Q5_Send',
 });
 
-// ---- Gate on Q1 -> Q5 ----
-splitGate('Split_Q1Gate', '{{widgets.Q1_Save.parsed.q1}}', 4800);
-wire('Split_Q1Gate', 'match', 'Q5_Send');
-wire('Split_Q1Gate', 'noMatch', 'Closing_Save');
-
-// ---- Q5 (open text) ----
+// ---- Q5 (open text) — always asked, not gated on Q1 ----
 questionBlock('q5', content.questions.q5, {
   x: 6000,
   withPreamble: false,

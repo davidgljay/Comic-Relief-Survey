@@ -29,19 +29,28 @@ describe('studio-flow.json', () => {
     expect(params.event).toContain("default: 'test'");
   });
 
-  it('gates Question 4 on Question 3 being 1 or 2', () => {
+  it('gates Question 4 on Question 3 being 1 or 2, testing the actual reply (not the pattern) as "value"', () => {
     const gate = flow.states.find((s) => s.name === 'Split_Q3Gate');
     expect(gate.properties.input).toContain('q3');
     const match = gate.transitions.find((t) => t.event === 'match');
     expect(match.next).toBe('Q4_Send');
-    expect(match.conditions[0].value).toBe('^[1-2]$');
+    // A real bug this guards against: "value" must be the Liquid expression
+    // being tested (matching properties.input) — the actual reply — not the
+    // regex pattern itself. Studio's schema validator doesn't catch that
+    // (value is just a generic string to it), but the condition then always
+    // evaluates false at runtime: it ends up testing whether the pattern
+    // string matches itself, never whether the reply does.
+    expect(match.conditions[0].value).toBe(gate.properties.input);
+    expect(match.conditions[0].arguments).toEqual(['^[1-2]$']);
   });
 
-  it('gates Question 5 on Question 1 being 1 or 2', () => {
-    const gate = flow.states.find((s) => s.name === 'Split_Q1Gate');
-    expect(gate.properties.input).toContain('q1');
-    const match = gate.transitions.find((t) => t.event === 'match');
-    expect(match.next).toBe('Q5_Send');
+  it('always asks Question 5 (the final open-text question), regardless of Question 1', () => {
+    // Whichever path Q4 took (asked or skipped), everything converges on Q5.
+    const q4 = flow.states.find((s) => s.name === 'Q4_Save');
+    expect(q4.transitions.find((t) => t.event === 'success').next).toBe('Q5_Send');
+    const gate = flow.states.find((s) => s.name === 'Split_Q3Gate');
+    expect(gate.transitions.find((t) => t.event === 'noMatch').next).toBe('Q5_Send');
+    expect(flow.states.some((s) => s.name === 'Split_Q1Gate')).toBe(false);
   });
 
   it('ends the flow silently on timeout/deliveryFailure (no transition defined)', () => {
@@ -83,7 +92,11 @@ describe('studio-flow.json', () => {
       for (const condition of matchTransition.conditions) {
         expect(Array.isArray(condition.arguments)).toBe(true);
         expect(condition.arguments.length).toBeGreaterThan(0);
-        expect(condition.arguments).toEqual([condition.value]);
+        // "arguments" is the regex pattern (the operand); "value" is the
+        // reply being tested — they're deliberately NOT the same string
+        // (see the Split_Q3Gate test above for why conflating them is a bug).
+        expect(condition.arguments).toEqual(['^[1-2]$']);
+        expect(condition.value).not.toEqual(condition.arguments[0]);
       }
     }
   });

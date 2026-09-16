@@ -207,7 +207,7 @@
       "transitions": [
         {
           "event": "noMatch",
-          "next": "Split_Q1Gate"
+          "next": "Q5_Send"
         },
         {
           "event": "match",
@@ -216,7 +216,7 @@
             {
               "friendly_name": "If value matches regex ^[1-2]$",
               "type": "regex",
-              "value": "^[1-2]$",
+              "value": "{{widgets.Q3_Save.parsed.q3}}",
               "arguments": [
                 "^[1-2]$"
               ]
@@ -257,11 +257,11 @@
       "transitions": [
         {
           "event": "success",
-          "next": "Split_Q1Gate"
+          "next": "Q5_Send"
         },
         {
           "event": "failed",
-          "next": "Split_Q1Gate"
+          "next": "Q5_Send"
         }
       ],
       "properties": {
@@ -293,37 +293,6 @@
       }
     },
     {
-      "name": "Split_Q1Gate",
-      "type": "split-based-on",
-      "transitions": [
-        {
-          "event": "noMatch",
-          "next": "Closing_Save"
-        },
-        {
-          "event": "match",
-          "next": "Q5_Send",
-          "conditions": [
-            {
-              "friendly_name": "If value matches regex ^[1-2]$",
-              "type": "regex",
-              "value": "^[1-2]$",
-              "arguments": [
-                "^[1-2]$"
-              ]
-            }
-          ]
-        }
-      ],
-      "properties": {
-        "offset": {
-          "x": 4800,
-          "y": 1650
-        },
-        "input": "{{widgets.Q1_Save.parsed.q1}}"
-      }
-    },
-    {
       "name": "Q5_Send",
       "type": "send-and-wait-for-reply",
       "transitions": [
@@ -335,7 +304,7 @@
       "properties": {
         "offset": {
           "x": 6000,
-          "y": 1800
+          "y": 1650
         },
         "body": "When you tell others about this event, what moment are you most likely to share? (Feel free to describe it in your own words.)",
         "timeout": "86400",
@@ -358,7 +327,7 @@
       "properties": {
         "offset": {
           "x": 6000,
-          "y": 1950
+          "y": 1800
         },
         "url": "https://REPLACE_WITH_DEPLOYED_DOMAIN.twil.io/save-response",
         "method": "POST",
@@ -399,7 +368,7 @@
       "properties": {
         "offset": {
           "x": 7200,
-          "y": 2100
+          "y": 1950
         },
         "url": "https://REPLACE_WITH_DEPLOYED_DOMAIN.twil.io/save-response",
         "method": "POST",
@@ -431,7 +400,7 @@
       "properties": {
         "offset": {
           "x": 7200,
-          "y": 2250
+          "y": 2100
         },
         "body": "That's it! Thanks so much for taking the time to complete this survey and for attending.",
         "to": "{{contact.channel.address}}",

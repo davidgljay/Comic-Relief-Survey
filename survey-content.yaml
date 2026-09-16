@@ -2,9 +2,10 @@
 #
 # Edit this file to change wording, then run `npm run generate:flow` to
 # regenerate studio-flow.json from it. Question order and branching logic
-# (Q3 -> Q4, Q1 -> Q5, timeout behavior) live in scripts/generate-studio-flow.js,
-# not here — this file is language only. Any reply is accepted as-is for every
-# question, including free text — there's no reprompt/validation step.
+# (Q3 -> Q4 is conditional; Q5 always runs; timeout behavior) live in
+# scripts/generate-studio-flow.js, not here — this file is language only. Any
+# reply is accepted as-is for every question, including free text — there's
+# no reprompt/validation step.
 # See survey-questions.md for the rationale behind each question.
 
 preamble: >-
