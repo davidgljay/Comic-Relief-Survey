@@ -163,11 +163,18 @@ function upsertRow_(sheet, keyColumn, rowObj) {
       if (colIndex === -1) continue;
       sheet.getRange(rowNumber, colIndex + 1).setValue(rowObj[col]);
     }
+    SpreadsheetApp.flush();
     return;
   }
 
   const newRow = header.map((col) => rowObj[col] ?? '');
   sheet.appendRow(newRow);
+  // Without this, a write from one doPost execution isn't guaranteed visible
+  // to findRow_'s read in the very next execution — back-to-back calls for
+  // the same key (e.g. successive /simulate-response calls, or two replies
+  // arriving close together) could each see "not found" and both append,
+  // producing duplicate rows for what should be one upserted row.
+  SpreadsheetApp.flush();
 }
 
 // Apps Script's runtime has no `module` global, so this is a no-op there —
