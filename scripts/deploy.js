@@ -323,7 +323,7 @@ async function watchForTestRow(values) {
   const { callAppsScript } = require('../functions/lib/apps-script-client.private.js');
   const context = appsScriptContext(values);
 
-  console.log('\nWatching the Contacts sheet for a new "test" row (checking every 5s, up to 5 minutes).');
+  console.log('\nWatching the Contacts sheet for a new row from texting in (checking every 5s, up to 5 minutes).');
   console.log(`Text ${values.TWILIO_PHONE_NUMBER} now if you haven't yet.`);
 
   const { rows: before } = await callAppsScript(context, 'list_rows', {});
@@ -335,7 +335,11 @@ async function watchForTestRow(values) {
     await new Promise((resolve) => setTimeout(resolve, 5000));
     // eslint-disable-next-line no-await-in-loop
     const { rows } = await callAppsScript(context, 'list_rows', {});
-    const newRow = rows.find((r) => r.values.event === 'test' && !seenPhones.has(r.values.phone));
+    // Matches any phone not already in the sheet before this call started —
+    // not filtered by event, since a text-in row now lands under "unknown"
+    // for a genuinely new number, or the number's own real event if it was
+    // already a registered contact (see docs/twilio-setup.md §6).
+    const newRow = rows.find((r) => !seenPhones.has(r.values.phone));
     if (newRow) {
       console.log('\nFound it:', newRow.values);
       return true;
@@ -394,7 +398,8 @@ async function main() {
 
     console.log('\n=== Deployed ===');
     console.log(`Text ${values.TWILIO_PHONE_NUMBER} from your phone to manually walk the survey — no API call`);
-    console.log('needed, it starts automatically and saves as event="test" so it stays separate from real data.');
+    console.log('needed, it starts automatically and saves as event="unknown" (unless your number is already a');
+    console.log('registered contact) so it stays separate from real event data.');
     console.log('Then check both Google Sheets for a new row.');
 
     const watch = await rl.question('\nWatch the Contacts sheet for that new test row now? (y/N) ');

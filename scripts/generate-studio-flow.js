@@ -11,7 +11,7 @@ const outPath = path.join(__dirname, '..', 'studio-flow.json');
 const contentPath = path.join(__dirname, '..', 'survey-content.yaml');
 const content = yaml.load(fs.readFileSync(contentPath, 'utf8'));
 
-for (const key of ['preamble', 'greeting_name_default', 'closing_message', 'questions']) {
+for (const key of ['preamble', 'closing_message', 'questions']) {
   if (content[key] === undefined) {
     throw new Error(`survey-content.yaml is missing required key "${key}"`);
   }
@@ -29,9 +29,6 @@ function offset(x) {
 }
 
 const states = [];
-
-// Swapped for the real deployed domain by scripts/deploy.js after `twilio serverless:deploy`.
-const FUNCTIONS_URL = 'https://REPLACE_WITH_DEPLOYED_DOMAIN.twil.io/save-response';
 
 function sendAndWait(name, body, x, timeout) {
   states.push({
@@ -91,7 +88,7 @@ function splitGate(name, inputExpr, x) {
   });
 }
 
-function httpSave(name, params, x) {
+function httpSave(name, params, x, path = '/save-response') {
   states.push({
     name,
     type: 'make-http-request',
@@ -101,7 +98,7 @@ function httpSave(name, params, x) {
     ],
     properties: {
       offset: offset(x),
-      url: FUNCTIONS_URL,
+      url: `https://REPLACE_WITH_DEPLOYED_DOMAIN.twil.io${path}`,
       method: 'POST',
       content_type: 'application/x-www-form-urlencoded',
       parameters: params,
@@ -119,28 +116,41 @@ function wire(name, event, next) {
 // Two ways to start an execution:
 //  - incomingRequest: the real path. trigger-send.js starts one execution per
 //    consenting contact via the REST API, passing phone/name/event/respondent_id.
-//  - incomingMessage: a dev/test convenience so anyone can just text the Twilio
-//    number to manually walk the flow, with no API call needed. Every reference
-//    to trigger.parameters.* below falls back to a value derived from the inbound
-//    message itself (respondent_id -> the message SID, phone -> the From number,
-//    name -> "there", event -> "test") so both paths share one flow definition.
-//    Responses from this path land in event="test" rows, kept separate from real
-//    event data by event name alone — see docs/twilio-setup.md for whether to
-//    disable this trigger before a number goes live for a real campaign.
+//  - incomingMessage: anyone texting the number with no active execution —
+//    either a deliberate test, or a genuinely new/unregistered number
+//    reaching out first. Routed through Lookup_Contact before Q1, which
+//    looks the phone up in the Contacts sheet: if it's already a known
+//    contact (e.g. registered for a real event but texted in before ever
+//    being sent a survey), its real event/name/respondent_id are reused;
+//    otherwise it's tagged event="unknown" (never "test" — that stays
+//    reserved for deliberate manual testing) with a freshly minted
+//    respondent_id. See functions/resolve-trigger-context.js.
 states.push({
   name: 'Trigger',
   type: 'trigger',
   transitions: [
     { event: 'incomingRequest', next: 'Q1_Send' },
-    { event: 'incomingMessage', next: 'Q1_Send' },
+    { event: 'incomingMessage', next: 'Lookup_Contact' },
   ],
   properties: { offset: offset(0) },
 });
 
+httpSave(
+  'Lookup_Contact',
+  [{ key: 'phone', value: '{{trigger.message.From}}' }],
+  0,
+  '/resolve-trigger-context'
+);
+wire('Lookup_Contact', 'success', 'Q1_Send');
+wire('Lookup_Contact', 'failed', 'Q1_Send');
+
 const baseParams = () => [
-  { key: 'respondent_id', value: "{{trigger.parameters.respondent_id | default: trigger.message.MessageSid}}" },
+  {
+    key: 'respondent_id',
+    value: '{{trigger.parameters.respondent_id | default: widgets.Lookup_Contact.parsed.respondent_id}}',
+  },
   { key: 'phone', value: '{{trigger.parameters.phone | default: trigger.message.From}}' },
-  { key: 'event', value: "{{trigger.parameters.event | default: 'test'}}" },
+  { key: 'event', value: '{{trigger.parameters.event | default: widgets.Lookup_Contact.parsed.event}}' },
 ];
 
 // ---- Generic question block ----
@@ -153,7 +163,7 @@ const baseParams = () => [
 function questionBlock(qkey, questionText, opts) {
   const P = qkey.toUpperCase();
   const sendBody = opts.withPreamble
-    ? `Hi {{trigger.parameters.name | default: '${content.greeting_name_default}'}}! ${content.preamble}\n\n${questionText}`
+    ? `Hi {{trigger.parameters.name | default: widgets.Lookup_Contact.parsed.name}}! ${content.preamble}\n\n${questionText}`
     : questionText;
 
   sendAndWait(`${P}_Send`, sendBody, opts.x);

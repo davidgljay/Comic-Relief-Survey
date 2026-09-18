@@ -14,19 +14,25 @@ describe('studio-flow.json', () => {
     expect(event.next).toBe('Q1_Send');
   });
 
-  it('also starts on incomingMessage, so texting the number is enough to manually test it', () => {
+  it('also starts on incomingMessage, routed through Lookup_Contact first', () => {
     const trigger = flow.states.find((s) => s.name === flow.initial_state);
     const event = trigger.transitions.find((t) => t.event === 'incomingMessage');
     expect(event).toBeDefined();
-    expect(event.next).toBe('Q1_Send');
+    expect(event.next).toBe('Lookup_Contact');
+
+    const lookup = flow.states.find((s) => s.name === 'Lookup_Contact');
+    expect(lookup.type).toBe('make-http-request');
+    expect(lookup.properties.url).toMatch(/\/resolve-trigger-context$/);
+    expect(lookup.transitions.find((t) => t.event === 'success').next).toBe('Q1_Send');
+    expect(lookup.transitions.find((t) => t.event === 'failed').next).toBe('Q1_Send');
   });
 
-  it('falls back to message-derived values when trigger.parameters is empty (the text-in path)', () => {
+  it('falls back to the Lookup_Contact widget\'s resolved values when trigger.parameters is empty (the text-in path)', () => {
     const q1Save = flow.states.find((s) => s.name === 'Q1_Save');
     const params = Object.fromEntries(q1Save.properties.parameters.map((p) => [p.key, p.value]));
-    expect(params.respondent_id).toContain('trigger.message.MessageSid');
+    expect(params.respondent_id).toContain('widgets.Lookup_Contact.parsed.respondent_id');
     expect(params.phone).toContain('trigger.message.From');
-    expect(params.event).toContain("default: 'test'");
+    expect(params.event).toContain('widgets.Lookup_Contact.parsed.event');
   });
 
   it('gates Question 4 on Question 3 being 1 or 2, testing the actual reply (not the pattern) as "value"', () => {
@@ -150,11 +156,12 @@ describe('studio-flow.json', () => {
     expect(closing.transitions).toEqual([]);
   });
 
-  it('every make-http-request widget posts to the save-response endpoint with no PII in the URL', () => {
+  it('every make-http-request widget posts to a known Functions endpoint with no PII in the URL', () => {
     const httpStates = flow.states.filter((s) => s.type === 'make-http-request');
     expect(httpStates.length).toBeGreaterThan(0);
     for (const state of httpStates) {
-      expect(state.properties.url).toMatch(/\/save-response$/);
+      const expectedEndpoint = state.name === 'Lookup_Contact' ? '/resolve-trigger-context' : '/save-response';
+      expect(state.properties.url.endsWith(expectedEndpoint)).toBe(true);
       expect(state.properties.method).toBe('POST');
     }
   });

@@ -26,15 +26,21 @@ class FakeTwilioResponse {
 
 global.Twilio = { Response: FakeTwilioResponse };
 
-// Mirrors what Twilio's real Runtime.getFunctions() returns for a private
-// Function: a map from its path (relative to functions/, no .private, no
-// .js) to { path: <absolute file path> }, suitable for require(...).
-const PRIVATE_FUNCTIONS = {
+// Mirrors what Twilio's real Runtime.getFunctions() returns: a map from a
+// Function's path (relative to functions/, no .private, no .js) to
+// { path: <absolute file path> }, suitable for require(...). Twilio's real
+// implementation includes every deployed Function, public or private — see
+// functions/simulate-response.js, which resolves the public save-response.js
+// this same way to call it directly rather than over HTTP.
+const FUNCTIONS = {
   'lib/apps-script-client': path.join(__dirname, '..', '..', 'functions', 'lib', 'apps-script-client.private.js'),
+  'lib/contact-context': path.join(__dirname, '..', '..', 'functions', 'lib', 'contact-context.private.js'),
+  'lib/flow-steps': path.join(__dirname, '..', '..', 'functions', 'lib', 'flow-steps.private.js'),
+  'save-response': path.join(__dirname, '..', '..', 'functions', 'save-response.js'),
 };
 
 global.Runtime = {
   getFunctions() {
-    return Object.fromEntries(Object.entries(PRIVATE_FUNCTIONS).map(([key, filePath]) => [key, { path: filePath }]));
+    return Object.fromEntries(Object.entries(FUNCTIONS).map(([key, filePath]) => [key, { path: filePath }]));
   },
 };

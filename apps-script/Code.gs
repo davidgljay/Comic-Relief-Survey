@@ -39,6 +39,8 @@ function doPost(e) {
         return jsonResponse(initHeadersAction_(params));
       case 'list_rows':
         return jsonResponse(listRows_(getSheet_(CONFIG.CONTACTS_SHEET_ID)));
+      case 'get_contact':
+        return jsonResponse(getContactAction_(params));
       case 'upsert_contact':
         upsertRow_(getSheet_(CONFIG.CONTACTS_SHEET_ID), 'phone', paramsToRow_(params));
         return jsonResponse({ ok: true });
@@ -52,6 +54,17 @@ function doPost(e) {
   } catch (err) {
     return jsonResponse({ error: String(err && err.message ? err.message : err) });
   }
+}
+
+// Looks up an existing Contacts row by phone, for callers that need to know
+// whether a number is already known before deciding how to treat it (e.g.
+// tagging a genuinely new number's event as "unknown" rather than whatever
+// this call happens to be for). Read-only.
+function getContactAction_(params) {
+  const { values } = findRow_(getSheet_(CONFIG.CONTACTS_SHEET_ID), 'phone', params.phone);
+  return values
+    ? { found: true, event: values.event || '', name: values.name || '', respondent_id: values.respondent_id || '' }
+    : { found: false };
 }
 
 // Writes the header row into both sheets if they're currently blank, and
@@ -132,7 +145,7 @@ function rowsFromValues_(values) {
 function findRow_(sheet, keyColumn, keyValue) {
   const { header, rows } = listRows_(sheet);
   const match = rows.find((r) => r.values[keyColumn] === keyValue);
-  return { header, rowNumber: match ? match.rowNumber : null };
+  return { header, rowNumber: match ? match.rowNumber : null, values: match ? match.values : null };
 }
 
 // Upserts by key column, writing only the columns present in rowObj so
@@ -161,5 +174,5 @@ function upsertRow_(sheet, keyColumn, rowObj) {
 // it only exists to let plain Node (Jest) require the pure helper functions
 // above for testing, without needing to mock SpreadsheetApp/ContentService.
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { paramsToRow_, rowsFromValues_, initHeaders_, CONTACTS_HEADER, ANONYMOUS_HEADER };
+  module.exports = { paramsToRow_, rowsFromValues_, initHeaders_, findRow_, CONTACTS_HEADER, ANONYMOUS_HEADER };
 }

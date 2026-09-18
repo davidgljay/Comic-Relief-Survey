@@ -126,9 +126,11 @@ skipped, any extra reply after Q3 is just unused.
 ## Testing it live
 
 After deploying, just **text the Twilio number** — no API call needed. The flow
-starts on any inbound text and walks the same survey logic, saving to `event="test"`
-rows in both Sheets so it never mixes with real event data. `npm run deploy` offers to
-watch the Contacts sheet for that row automatically once you've sent your first reply.
+starts on any inbound text and walks the same survey logic. If the number is already
+a registered contact, it reuses that contact's real event; otherwise it saves to
+`event="unknown"` rows in both Sheets so it never mixes with real event data. `npm run
+deploy` offers to watch the Contacts sheet for that row automatically once you've sent
+your first reply.
 
 **No reply at all, no error anywhere?** Check the number's status in Console > Phone
 Numbers > Manage > Active Numbers: if it says **"Messaging disabled — Complete A2P

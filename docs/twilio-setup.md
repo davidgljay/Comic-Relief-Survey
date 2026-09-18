@@ -183,6 +183,34 @@ analysis — see handoff, §8.
   the flow's "Make HTTP Request" widgets), so a partially-completed survey still leaves
   partial answers on record — nothing waits until the flow finishes.
 
+## 5a. Simulating a reply against the live system (`/simulate-response`)
+
+For testing the real, deployed pipeline (Functions + Apps Script + both Sheets)
+without sending or receiving a real SMS — useful while A2P 10DLC hasn't cleared yet,
+or just faster than texting through a whole conversation by hand:
+
+```bash
+curl -X POST "https://<deployed-domain>.twil.io/simulate-response?secret=$TRIGGER_SEND_SECRET" \
+  --data-urlencode "number=+15551234567" \
+  --data-urlencode "question=1" \
+  --data-urlencode "answer=1 - I really enjoyed the event!"
+```
+
+(`number` must be E.164; `question` is 1–5; `answer` is whatever you want that
+question's reply to be — free text is fine, same as a real reply.)
+
+This **actually saves the answer for real** — same code path, same Sheets, same
+PII split as a genuine reply — then responds with the exact text of whatever would
+be sent next, as plain text (the next question, or the closing message after
+question 5). Call it again for the same `number` with `question=2`, etc., to walk
+through a full simulated conversation, checking both the returned "next step" text
+and the Sheets after each call. Like the text-in path, if `number` isn't already a
+known contact its `event` gets resolved to `"unknown"` (see §6) — same `Code.gs`
+`get_contact` requirement applies.
+
+Gated by the same `TRIGGER_SEND_SECRET` as `/trigger-send` — it can write real rows
+into both Sheets, so don't leave the URL somewhere it could be hit by anyone else.
+
 ## 6. Known behaviors worth testing explicitly
 
 - **Any reply is accepted, verbatim, for every question** — including free text on
@@ -205,17 +233,35 @@ analysis — see handoff, §8.
   the reply to *any* question, not only Q5 (the intentionally open-ended one). Every
   answer is still written to the Anonymous Results sheet as typed — Comic Relief
   should spot-check responses before that sheet is shared onward.
-- **Texting the number also starts the survey.** The flow's trigger fires on both a
-  REST-started execution (the real `/trigger-send` path) and a plain inbound text —
-  this is deliberate, so anyone can test the whole flow by just texting the number,
-  with no API call needed (see §7). Text-triggered runs use `respondent_id` = the
-  inbound message SID, `phone`/`name` from the message itself (name defaults to
-  "there"), and always save under `event="test"`, so they can't be mistaken for real
-  event data. **Decide before a number goes live for a real campaign** whether to
-  leave this on (harmless — it just produces more `event="test"` rows if a stranger
-  texts in) or remove the `incomingMessage` trigger from `studio-flow.json` /
-  `scripts/generate-studio-flow.js` for a stricter "only REST-started executions run
-  the survey" policy.
+- **Texting the number also starts the survey, and looks the number up first.** The
+  flow's trigger fires on both a REST-started execution (the real `/trigger-send`
+  path) and a plain inbound text. For a text-in start, the flow calls
+  `/resolve-trigger-context` (Lookup_Contact widget) before Q1, which checks the
+  Contacts sheet for that phone:
+  - **Already a known contact** (e.g. registered for a real event with consent, but
+    texted in before ever being sent a survey) — reuses their real `event`, `name`,
+    and `respondent_id`, so their answers land under their actual event, not a
+    throwaway one.
+  - **Not on the sheet at all** — tagged `event="unknown"`, with a freshly minted
+    `respondent_id`. Their answers still get added and logged, same as anyone else;
+    there's just no real registration/consent behind them, which is worth knowing
+    before treating that data as equivalent to a real event's. `/simulate-response`
+    (§5a) resolves a number's event the same way — an unregistered number tested
+    through it also lands under `"unknown"`, not a dedicated test event.
+  - If the lookup itself fails for any reason, it degrades to the "unknown" case
+    rather than blocking the conversation.
+
+  **This requires `Code.gs`'s `get_contact` action** — if you deployed `Code.gs`
+  before this feature existed, redeploy it (§3: paste in the current
+  `apps-script/Code.gs`, then cut a new deployment version) or every text-in start
+  will fall back to "unknown" even for genuinely registered contacts, since the
+  lookup itself will error.
+
+  **Decide before a number goes live for a real campaign** whether to leave
+  text-in-starts on at all (harmless either way — unregistered numbers just produce
+  more `event="unknown"` rows) or remove the `incomingMessage` trigger from
+  `studio-flow.json` / `scripts/generate-studio-flow.js` for a stricter "only
+  REST-started executions run the survey" policy.
 
 ## 7. Test before any real data flows
 
@@ -225,8 +271,11 @@ analysis — see handoff, §8.
   the Q3→Q4 gate right after an edit; see the README.
 - **Fastest live check**: after `npm run deploy`, just text the Twilio number from
   your own phone — the survey starts immediately (see §6). Reply through a few
-  branches, then check both Google Sheets for an `event="test"` row. `npm run deploy`
-  can watch the Contacts sheet for you and confirm the row lands.
+  branches, then check both Google Sheets for a new `event="unknown"` row (or your
+  real event, if that number's already a registered contact). `npm run deploy` can
+  watch the Contacts sheet for you and confirm the row lands.
+- Or drive `/simulate-response` (§5a) to exercise the live system per-question,
+  without needing to actually send/receive an SMS.
 - Walk every branch (a numeric reply, a free-text reply, timeout, STOP) with dummy
   contacts and real test phone numbers.
 - Also exercise the real `/trigger-send` path at least once with a dummy contact added

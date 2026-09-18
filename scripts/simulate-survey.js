@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 // Runs a full survey conversation against the REAL studio-flow.json and the
-// REAL functions/save-response.js handler — no live Twilio account, no live
-// Google Sheet, no network calls at all — and prints exactly what would have
-// been written to each Google Sheet. Useful for quickly checking the flow's
-// logic (question order, the Q3->Q4 skip gate, partial-save behavior) after
+// REAL functions/save-response.js and functions/resolve-trigger-context.js
+// handlers — no live Twilio account, no live Google Sheet, no network calls
+// at all — and prints exactly what would have been written to each Google
+// Sheet. Useful for quickly checking the flow's logic (question order, the
+// Q3->Q4 skip gate, unknown-number tagging, partial-save behavior) after
 // editing survey-content.yaml or generate-studio-flow.js, without a deploy.
 //
 // Usage:
@@ -49,8 +50,14 @@ require.cache[appsScriptClientPath] = {
   loaded: true,
   exports: {
     async callAppsScript(context, action, params) {
+      if (action === 'get_contact') {
+        const existing = contactsSheet.get(params.phone);
+        return existing
+          ? { found: true, event: existing.event || '', name: existing.name || '', respondent_id: existing.respondent_id || '' }
+          : { found: false };
+      }
       if (action !== 'save_response') {
-        throw new Error(`simulate-survey.js only expects a "save_response" call, got "${action}"`);
+        throw new Error(`simulate-survey.js only expects "save_response" or "get_contact", got "${action}"`);
       }
       upsert(contactsSheet, params.phone, paramsToRow_(params));
       upsert(anonymousSheet, params.respondent_id, paramsToRow_(params, ANONYMOUS_EXCLUDE));
@@ -59,12 +66,30 @@ require.cache[appsScriptClientPath] = {
   },
 };
 
+// Also requires functions/lib/contact-context.private.js (which requires
+// apps-script-client.private.js — already stubbed above).
 const { handler: saveResponseHandler } = require(path.join(ROOT, 'functions', 'save-response.js'));
+const { handler: lookupContactHandler } = require(path.join(ROOT, 'functions', 'resolve-trigger-context.js'));
 
-function callSaveResponse(params) {
+function callHandler(handler, params) {
   return new Promise((resolve, reject) => {
-    saveResponseHandler({}, params, (err, response) => (err ? reject(err) : resolve(response)));
+    handler({}, params, (err, response) => (err ? reject(err) : resolve(response)));
   });
+}
+
+// make-http-request widgets in studio-flow.json target different endpoints
+// (only /save-response and /resolve-trigger-context exist today) — route
+// each to the matching real handler, by the same URL path Twilio would use.
+const ENDPOINT_HANDLERS = {
+  '/save-response': saveResponseHandler,
+  '/resolve-trigger-context': lookupContactHandler,
+};
+
+function handlerForWidget(state) {
+  const endpoint = new URL(state.properties.url).pathname;
+  const handler = ENDPOINT_HANDLERS[endpoint];
+  if (!handler) throw new Error(`simulate-survey.js doesn't know how to simulate a call to "${endpoint}"`);
+  return handler;
 }
 
 // ---- A tiny Liquid-lite resolver for exactly the patterns generate-studio-flow.js produces ----
@@ -152,9 +177,10 @@ async function main() {
       const params = Object.fromEntries(
         current.properties.parameters.map((p) => [p.key, resolveTemplate(p.value, ctx)])
       );
-      const response = await callSaveResponse(params);
+      const response = await callHandler(handlerForWidget(current), params);
       ctx.widgets[current.name] = { parsed: response.body || {} };
-      current = statesByName[current.transitions.find((t) => t.event === 'success').next];
+      const event = response.statusCode < 300 ? 'success' : 'failed';
+      current = statesByName[current.transitions.find((t) => t.event === event).next];
     } else {
       throw new Error(`simulate-survey.js doesn't support widget type "${current.type}"`);
     }

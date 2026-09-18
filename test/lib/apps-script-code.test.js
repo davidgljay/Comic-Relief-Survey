@@ -4,7 +4,12 @@
 // in just the pure helper functions it exports for testing (guarded by a
 // `typeof module !== 'undefined'` check that's a no-op inside Apps Script).
 require.extensions['.gs'] = require.extensions['.js'];
-const { paramsToRow_, rowsFromValues_, initHeaders_, CONTACTS_HEADER, ANONYMOUS_HEADER } = require('../../apps-script/Code.gs');
+const { paramsToRow_, rowsFromValues_, initHeaders_, findRow_, CONTACTS_HEADER, ANONYMOUS_HEADER } = require('../../apps-script/Code.gs');
+
+// Minimal fake standing in for a Sheet object's getDataRange().getValues() API.
+function fakeFullSheet(grid) {
+  return { getDataRange: () => ({ getValues: () => grid }) };
+}
 
 // Minimal fake standing in for a Sheet object's getRange(...).getValues()/setValues() API.
 function fakeSheet(firstRowValues) {
@@ -111,5 +116,27 @@ describe('initHeaders_', () => {
 
     expect(result).toBe('skipped-existing-different-content');
     expect(sheet._state.firstRow).toEqual(['some', 'other', 'data']);
+  });
+});
+
+describe('findRow_', () => {
+  const sheet = fakeFullSheet([
+    ['phone', 'name', 'event', 'respondent_id'],
+    ['+15551112222', 'Ada', 'fall-gala', 'uuid-1'],
+    ['+15553334444', 'Grace', 'fall-gala', 'uuid-2'],
+  ]);
+
+  it('returns the matching row\'s values when found', () => {
+    const { rowNumber, values } = findRow_(sheet, 'phone', '+15553334444');
+
+    expect(rowNumber).toBe(3);
+    expect(values).toEqual({ phone: '+15553334444', name: 'Grace', event: 'fall-gala', respondent_id: 'uuid-2' });
+  });
+
+  it('returns null rowNumber and values when not found', () => {
+    const { rowNumber, values } = findRow_(sheet, 'phone', '+19998887777');
+
+    expect(rowNumber).toBeNull();
+    expect(values).toBeNull();
   });
 });
