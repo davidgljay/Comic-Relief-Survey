@@ -9,11 +9,17 @@
 // action "save_response"):
 //   - Contacts sheet (keyed by phone): full record, includes name/phone.
 //   - Anonymous sheet (keyed by respondent_id): answers only, never phone/name.
-const { callAppsScript } = require('./lib/apps-script-client.private.js');
-
 const ANSWER_FIELDS = ['q1', 'q2', 'q3', 'q4', 'q5'];
 
 exports.handler = async function (context, event, callback) {
+  // Required inside the handler, not at module top level: the deployed
+  // runtime flattens every Function into /var/task/handlers/<hash>.js, so a
+  // plain relative require (e.g. require('./lib/apps-script-client.private.js'))
+  // resolves locally (twilio-run start, Jest) but throws "Cannot find module"
+  // once actually deployed. Runtime.getFunctions()[...].path is Twilio's own
+  // documented way to resolve a private Function's real file location.
+  const { callAppsScript } = require(Runtime.getFunctions()['lib/apps-script-client'].path);
+
   const response = new Twilio.Response();
   response.appendHeader('Content-Type', 'application/json');
 

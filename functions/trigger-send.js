@@ -3,9 +3,14 @@
 // send time. Starts a Studio Flow execution for every consenting, not-yet-sent
 // contact for the given event, then marks them sent so retries don't double-send.
 const crypto = require('crypto');
-const { callAppsScript } = require('./lib/apps-script-client.private.js');
 
 exports.handler = async function (context, event, callback) {
+  // Required inside the handler, not at module top level — see the comment
+  // in functions/save-response.js for why a plain relative require breaks
+  // once actually deployed (works fine locally, which is why this was easy
+  // to miss until a real deploy hit it).
+  const { callAppsScript } = require(Runtime.getFunctions()['lib/apps-script-client'].path);
+
   const response = new Twilio.Response();
   response.appendHeader('Content-Type', 'application/json');
 

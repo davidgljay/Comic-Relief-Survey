@@ -1,11 +1,15 @@
 // POST /contacts
 // Adds (or updates) a single consenting contact, collected at event registration.
 // Body (JSON or form-encoded): phone, name, email (optional), consent, event, registered_at (optional)
-const { callAppsScript } = require('./lib/apps-script-client.private.js');
-
 const E164 = /^\+[1-9]\d{1,14}$/;
 
 exports.handler = async function (context, event, callback) {
+  // Required inside the handler, not at module top level — see the comment
+  // in functions/save-response.js for why a plain relative require breaks
+  // once actually deployed (works fine locally, which is why this was easy
+  // to miss until a real deploy hit it).
+  const { callAppsScript } = require(Runtime.getFunctions()['lib/apps-script-client'].path);
+
   const response = new Twilio.Response();
   response.appendHeader('Content-Type', 'application/json');
 
