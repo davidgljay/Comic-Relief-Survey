@@ -23,9 +23,11 @@ const TAB_NAME = 'Sheet1';
 
 const CONTACTS_HEADER = [
   'phone', 'name', 'email', 'consent', 'event', 'registered_at',
-  'sent_at', 'respondent_id', 'q1', 'q2', 'q3', 'q4', 'q5', 'completed_at',
+  'sent_at', 'respondent_id', 'q1', 'q2', 'q3', 'q4', 'q5', 'last_updated_at', 'completed_at',
 ];
-const ANONYMOUS_HEADER = ['respondent_id', 'event', 'q1', 'q2', 'q3', 'q4', 'q5', 'completed_at'];
+const ANONYMOUS_HEADER = [
+  'respondent_id', 'event', 'q1', 'q2', 'q3', 'q4', 'q5', 'last_updated_at', 'completed_at',
+];
 
 function doPost(e) {
   try {

@@ -72,6 +72,14 @@ describe('POST /save-response', () => {
     expect(typeof params.completed_at).toBe('string');
   });
 
+  it('stamps last_updated_at on every call, whether or not it completes the survey', async () => {
+    await invoke({ respondent_id: 'uuid-1', phone: '+1', event: 'Gala', q1: '2' });
+    const params = mockCallAppsScript.mock.calls[0][2];
+
+    expect(typeof params.last_updated_at).toBe('string');
+    expect(params).not.toHaveProperty('completed_at');
+  });
+
   it('returns 500 if the Apps Script call fails', async () => {
     mockCallAppsScript.mockRejectedValue(new Error('boom'));
 

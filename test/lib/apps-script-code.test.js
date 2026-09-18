@@ -80,12 +80,14 @@ describe('header constants', () => {
   it('Contacts header matches the documented columns (docs/twilio-setup.md §3)', () => {
     expect(CONTACTS_HEADER).toEqual([
       'phone', 'name', 'email', 'consent', 'event', 'registered_at',
-      'sent_at', 'respondent_id', 'q1', 'q2', 'q3', 'q4', 'q5', 'completed_at',
+      'sent_at', 'respondent_id', 'q1', 'q2', 'q3', 'q4', 'q5', 'last_updated_at', 'completed_at',
     ]);
   });
 
   it('Anonymous header matches the documented columns and excludes any PII column', () => {
-    expect(ANONYMOUS_HEADER).toEqual(['respondent_id', 'event', 'q1', 'q2', 'q3', 'q4', 'q5', 'completed_at']);
+    expect(ANONYMOUS_HEADER).toEqual([
+      'respondent_id', 'event', 'q1', 'q2', 'q3', 'q4', 'q5', 'last_updated_at', 'completed_at',
+    ]);
     expect(ANONYMOUS_HEADER).not.toEqual(expect.arrayContaining(['phone', 'name', 'email']));
   });
 });

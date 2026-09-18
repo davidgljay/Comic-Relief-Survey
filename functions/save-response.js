@@ -5,6 +5,11 @@
 // Body: respondent_id, phone, event, and any of q1..q5 that are known so far,
 // plus completed ("true") on the final call.
 //
+// Every call rewrites last_updated_at to now, so it always reflects the most
+// recent activity for that respondent, whether or not they've finished.
+// completed_at is separate: written once, only on the call that carries
+// completed="true", and is the actual "did they finish the survey" signal.
+//
 // Writes to BOTH sheets in one Apps Script call (see apps-script/Code.gs
 // action "save_response"):
 //   - Contacts sheet (keyed by phone): full record, includes name/phone.
@@ -37,7 +42,8 @@ exports.handler = async function (context, event, callback) {
       answers[field] = event[field];
     }
   }
-  const completedAt = completed === 'true' || completed === true ? new Date().toISOString() : undefined;
+  const now = new Date().toISOString();
+  const completedAt = completed === 'true' || completed === true ? now : undefined;
 
   try {
     await callAppsScript(context, 'save_response', {
@@ -45,6 +51,7 @@ exports.handler = async function (context, event, callback) {
       respondent_id: respondentId,
       event: eventName,
       ...answers,
+      last_updated_at: now,
       ...(completedAt ? { completed_at: completedAt } : {}),
     });
     // Echo back the answers this call received (never phone/name) so the Studio
