@@ -11,7 +11,16 @@ async function resolveContactContext(context, phone) {
   const { callAppsScript } = require(Runtime.getFunctions()['lib/apps-script-client'].path);
   const crypto = require('crypto');
 
-  const contact = await callAppsScript(context, 'get_contact', { phone });
+  let contact;
+  try {
+    contact = await callAppsScript(context, 'get_contact', { phone });
+  } catch (err) {
+    // Apps Script errors (e.g. a deployment that predates the get_contact
+    // action) must never block a caller — fall through to the same
+    // genuinely-unknown-number defaults below.
+    console.error(err);
+    contact = { found: false };
+  }
 
   if (contact.found) {
     return {

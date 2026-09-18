@@ -5,6 +5,9 @@ jest.mock('../../functions/lib/apps-script-client.private.js', () => ({
 }));
 
 const { resolveContactContext } = require('../../functions/lib/contact-context.private.js');
+const { silenceConsoleError } = require('../helpers/silence-console-error.js');
+
+silenceConsoleError();
 
 const context = { APPS_SCRIPT_URL: 'https://script.google.com/x/exec', APPS_SCRIPT_SECRET: 'shh' };
 
@@ -55,5 +58,16 @@ describe('resolveContactContext', () => {
     const b = await resolveContactContext(context, '+15552220000');
 
     expect(a.respondentId).not.toBe(b.respondentId);
+  });
+
+  it('degrades to the same unknown-number defaults if the Apps Script call itself throws', async () => {
+    mockCallAppsScript.mockRejectedValue(new Error('Apps Script error: unknown action "get_contact"'));
+
+    const result = await resolveContactContext(context, '+15551112222');
+
+    expect(result.event).toBe('unknown');
+    expect(result.name).toBe('there');
+    expect(typeof result.respondentId).toBe('string');
+    expect(result.respondentId.length).toBeGreaterThan(0);
   });
 });
