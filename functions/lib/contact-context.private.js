@@ -9,7 +9,6 @@
 // resolve-trigger-context.js) and the simulate-response.js test endpoint.
 async function resolveContactContext(context, phone) {
   const { callAppsScript } = require(Runtime.getFunctions()['lib/apps-script-client'].path);
-  const crypto = require('crypto');
 
   let contact;
   try {
@@ -26,16 +25,24 @@ async function resolveContactContext(context, phone) {
     return {
       event: contact.event || 'unknown',
       name: contact.name || 'there',
-      respondentId: contact.respondent_id || crypto.randomUUID(),
+      respondentId: contact.respondent_id || unknownRespondentId(phone),
     };
   }
 
   // A genuinely unregistered number — no prior row, so no real event/consent
   // on file. Tagged "unknown" (never "test") so it's distinguishable from
-  // deliberate manual testing in the Sheets, and a fresh respondent_id is
-  // minted so repeat texts from the same unknown number still accumulate
-  // into one Anonymous-sheet row rather than a new one each time.
-  return { event: 'unknown', name: 'there', respondentId: crypto.randomUUID() };
+  // deliberate manual testing in the Sheets. respondent_id is derived
+  // deterministically from the phone number (not crypto.randomUUID()) so
+  // repeat calls for the same number — e.g. successive /simulate-response
+  // calls for Q1, Q2, Q3..., which each resolve contact context independently
+  // with no Studio execution state tying them together — land on the same
+  // Anonymous-sheet row instead of a new one every time.
+  return { event: 'unknown', name: 'there', respondentId: unknownRespondentId(phone) };
+}
+
+function unknownRespondentId(phone) {
+  const crypto = require('crypto');
+  return crypto.createHash('sha256').update(phone).digest('hex');
 }
 
 module.exports = { resolveContactContext };

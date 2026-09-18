@@ -30,7 +30,7 @@ describe('resolveContactContext', () => {
     expect(result).toEqual({ event: 'fall-gala-2026', name: 'Ada', respondentId: 'uuid-existing' });
   });
 
-  it('tags a genuinely unknown number as event "unknown" with a fresh respondent_id', async () => {
+  it('tags a genuinely unknown number as event "unknown" with a derived respondent_id', async () => {
     mockCallAppsScript.mockResolvedValue({ found: false });
 
     const result = await resolveContactContext(context, '+15559998888');
@@ -41,7 +41,16 @@ describe('resolveContactContext', () => {
     expect(result.respondentId.length).toBeGreaterThan(0);
   });
 
-  it('mints a fresh respondent_id even for a found contact with no respondent_id on file yet', async () => {
+  it('gives the same unknown number the same respondent_id across separate calls, so repeat calls (e.g. successive /simulate-response calls with no shared execution state) land on one row', async () => {
+    mockCallAppsScript.mockResolvedValue({ found: false });
+
+    const a = await resolveContactContext(context, '+15559998888');
+    const b = await resolveContactContext(context, '+15559998888');
+
+    expect(a.respondentId).toBe(b.respondentId);
+  });
+
+  it('mints a derived respondent_id even for a found contact with no respondent_id on file yet', async () => {
     mockCallAppsScript.mockResolvedValue({ found: true, event: 'fall-gala-2026', name: 'Ada', respondent_id: '' });
 
     const result = await resolveContactContext(context, '+15551112222');
@@ -51,7 +60,7 @@ describe('resolveContactContext', () => {
     expect(result.respondentId.length).toBeGreaterThan(0);
   });
 
-  it('gives two unknown numbers different respondent_ids', async () => {
+  it('gives two different unknown numbers different respondent_ids', async () => {
     mockCallAppsScript.mockResolvedValue({ found: false });
 
     const a = await resolveContactContext(context, '+15551110000');
