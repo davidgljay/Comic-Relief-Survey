@@ -163,14 +163,20 @@ function upsertRow_(sheet, keyColumn, rowObj) {
     for (const col of Object.keys(rowObj)) {
       const colIndex = header.indexOf(col);
       if (colIndex === -1) continue;
-      sheet.getRange(rowNumber, colIndex + 1).setValue(rowObj[col]);
+      // setNumberFormat('@') first: without it, Sheets silently reinterprets
+      // a numeric-looking string (a phone number's leading "+15551234567",
+      // or even a hex respondent_id) as a number on write, which then reads
+      // back different from the key we're matching on and breaks every
+      // future upsert for that row.
+      sheet.getRange(rowNumber, colIndex + 1).setNumberFormat('@').setValue(rowObj[col]);
     }
     SpreadsheetApp.flush();
     return;
   }
 
   const newRow = header.map((col) => rowObj[col] ?? '');
-  sheet.appendRow(newRow);
+  const newRowNumber = sheet.getLastRow() + 1;
+  sheet.getRange(newRowNumber, 1, 1, newRow.length).setNumberFormat('@').setValues([newRow]);
   // Without this, a write from one doPost execution isn't guaranteed visible
   // to findRow_'s read in the very next execution — back-to-back calls for
   // the same key (e.g. successive /simulate-response calls, or two replies
