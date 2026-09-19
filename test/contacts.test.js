@@ -24,11 +24,26 @@ beforeEach(() => {
 
 describe('POST /contacts', () => {
   it('rejects a missing/invalid phone number', async () => {
-    const response = await invoke({ phone: '5551112222', name: 'Ada', event: 'Gala', consent: true });
+    const response = await invoke({ phone: '555', name: 'Ada', event: 'Gala', consent: true });
 
     expect(response.statusCode).toBe(400);
-    expect(response.body.error).toMatch(/E\.164/);
+    expect(response.body.error).toMatch(/valid number/);
     expect(mockCallAppsScript).not.toHaveBeenCalled();
+  });
+
+  it('accepts a phone in any common format and stores it as E.164', async () => {
+    for (const phone of ['(555) 111-2222', '555.111.2222', '1-555-111-2222', '+1 555 111 2222', '+1\u202D5551112222\u202C']) {
+      mockCallAppsScript.mockClear();
+
+      const response = await invoke({ phone, name: 'Ada', event: 'Gala', consent: true });
+
+      expect(response.statusCode).toBe(201);
+      expect(mockCallAppsScript).toHaveBeenCalledWith(
+        context,
+        'upsert_contact',
+        expect.objectContaining({ phone: '+15551112222' })
+      );
+    }
   });
 
   it('rejects a missing name or event', async () => {

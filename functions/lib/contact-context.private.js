@@ -9,8 +9,9 @@
 // resolve-trigger-context.js) and the simulate-response.js test endpoint.
 async function resolveContactContext(context, phone) {
   const { callAppsScript } = require(Runtime.getFunctions()['lib/apps-script-client'].path);
+  const { normalizePhone } = require(Runtime.getFunctions()['lib/phone'].path);
 
-  // Matched by digits only, in the Function rather than in Apps Script's exact
+  // Matched as normalized E.164 numbers (see phone.private.js), in the Function rather than in Apps Script's exact
   // string comparison: a phone typed or pasted into the sheet by hand often
   // differs from what Twilio reports for the same number (invisible Unicode
   // direction marks from a contacts app, a dropped leading "+", spaces or
@@ -20,8 +21,8 @@ async function resolveContactContext(context, phone) {
   let contact = { found: false };
   try {
     const { rows } = await callAppsScript(context, 'list_rows', {});
-    const wanted = digitsOf(phone);
-    const matches = wanted ? rows.filter((r) => digitsOf(r.values.phone) === wanted) : [];
+    const wanted = normalizePhone(phone);
+    const matches = wanted ? rows.filter((r) => normalizePhone(r.values.phone) === wanted) : [];
     const row = matches.find((r) => r.values.respondent_id) || matches[0];
     if (row) contact = { found: true, ...row.values };
   } catch (err) {
@@ -48,10 +49,6 @@ async function resolveContactContext(context, phone) {
   // with no Studio execution state tying them together — land on the same
   // Anonymous-sheet row instead of a new one every time.
   return { phone, event: 'unknown', name: 'there', respondentId: unknownRespondentId(phone) };
-}
-
-function digitsOf(value) {
-  return String(value === undefined || value === null ? '' : value).replace(/\D/g, '');
 }
 
 function unknownRespondentId(phone) {

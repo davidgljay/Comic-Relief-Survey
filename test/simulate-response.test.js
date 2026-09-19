@@ -46,10 +46,16 @@ describe('POST /simulate-response', () => {
   });
 
   it('rejects an invalid phone number', async () => {
-    const response = await invoke({ secret: 'shh', number: '5551112222', question: 1, answer: '1' });
+    const response = await invoke({ secret: 'shh', number: '555', question: 1, answer: '1' });
 
     expect(response.statusCode).toBe(400);
     expect(mockSaveResponseHandler).not.toHaveBeenCalled();
+  });
+
+  it('accepts the number in any common format', async () => {
+    await invoke({ secret: 'shh', number: '(555) 111-2222', question: 1, answer: '1' });
+
+    expect(mockResolveContactContext).toHaveBeenCalledWith(context, '+15551112222');
   });
 
   it('rejects a question outside 1-5', async () => {
