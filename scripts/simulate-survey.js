@@ -19,17 +19,12 @@
 // the real functions/trigger-send.js handler runs against a fake Twilio
 // client (so it "starts a Studio execution" without sending anything), and
 // the flow is then walked from the REST trigger (incomingRequest) instead of
-// the text-in trigger. The fake execution deliberately hands the flow EMPTY
-// {{trigger.parameters.*}}, mimicking what Twilio does when an execution is
-// started with a Messaging Service SID as `from` (see trigger-send.js) — so
-// this proves the flow gets respondent_id/event/name from Lookup_Contact
-// alone. trigger-send.js writes nothing to the sheet before starting the
-// execution (each Apps Script write is slow and the function has 10 seconds),
-// so the respondent_id here is derived by Lookup_Contact and recorded by the
-// first save.
+// the text-in trigger. As in real executions, the parameters trigger-send.js
+// passes reach the flow as {{flow.data.*}} (there is no
+// {{trigger.parameters.*}}), and the REST path calls no Lookup_Contact.
+// The contact's phone is stored with hidden Unicode characters while Twilio
+// reports the cleaned number, to prove answers still land on the original row.
 //
-// A scripted reply list only needs to cover what actually gets asked — once
-// Q4 is skipped (or the flow ends), remaining replies are simply unused.
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline/promises');
@@ -131,7 +126,7 @@ async function runTriggerSend(eventName) {
           flows: () => ({
             executions: {
               async create(args) {
-                executions.push({ ...args, to: cleanedByTwilio(args.to) });
+                executions.push({ ...args, to: cleanedByTwilio(args.to), data: JSON.parse(args.parameters) });
                 return {};
               },
             },
@@ -171,9 +166,12 @@ function getPath(obj, dottedPath) {
 
 function resolveTemplate(str, ctx) {
   return String(str).replace(/\{\{\s*(.+?)\s*\}\}/g, (_, expr) => {
-    const [pathPart, defaultPart] = expr.split(/\s*\|\s*default:\s*/);
+    // "a.b | default: c.d | default: 'literal'" — each default applies while
+    // the value so far is still empty, as Liquid's chained filters do.
+    const [pathPart, ...defaults] = expr.split(/\s*\|\s*default:\s*/);
     let value = getPath(ctx, pathPart.trim());
-    if ((value === undefined || value === '') && defaultPart !== undefined) {
+    for (const defaultPart of defaults) {
+      if (value !== undefined && value !== '') break;
       const trimmed = defaultPart.trim();
       const literal = trimmed.match(/^['"](.*)['"]$/);
       value = literal ? literal[1] : getPath(ctx, trimmed);
@@ -210,11 +208,10 @@ async function main() {
   let startEvent;
   if (fromTriggerSend) {
     const execution = await runTriggerSend(eventName);
-    // Empty on purpose: see the header comment above.
     ctx = {
-      trigger: { parameters: {} },
+      trigger: { request: { to: execution.to, from: execution.from, parameters: execution.data } },
       contact: { channel: { address: execution.to } },
-      flow: { channel: { address: execution.from } },
+      flow: { channel: { address: execution.from }, data: execution.data },
       widgets: {},
     };
     startEvent = 'incomingRequest';

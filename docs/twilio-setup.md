@@ -101,11 +101,7 @@ cut a new deployment version (§3 step 12), then re-run `npm run deploy --skip-e
      execution by matching channel identity, so outbound and inbound both need to be
      anchored to the Service, not the bare number (confirmed live, twice, that mixing
      the two — bare-number `from` with Service-routed inbound, or vice versa —
-     reliably reintroduces the duplicate-execution bug). Using the Service SID as
-     `from` does break `{{trigger.parameters.*}}` from resolving in REST-started
-     executions — that's worked around at the flow level (both trigger paths route
-     through the `Lookup_Contact` widget, which reads the contact back from the
-     Contacts sheet instead), not by changing this setting. `npm run deploy`'s `.env` prompt
+     reliably reintroduces the duplicate-execution bug). `npm run deploy`'s `.env` prompt
      auto-detects this: it checks whether `TWILIO_PHONE_NUMBER` is already a sender on
      any Messaging Service and pre-fills the SID (accept with Enter) if so — you
      shouldn't normally need to go find it in the console yourself. Leave it blank if
@@ -267,17 +263,14 @@ into both Sheets, so don't leave the URL somewhere it could be hit by anyone els
   should spot-check responses before that sheet is shared onward.
 - **Texting the number also starts the survey, and looks the number up first.** The
   flow's trigger fires on both a REST-started execution (the real `/trigger-send`
-  path) and a plain inbound text — both are routed through the same
-  `/resolve-trigger-context` call (Lookup_Contact widget) before Q1. (The REST path
-  doesn't rely on the parameters passed at execution-creation time for this — confirmed
-  live that those don't reliably resolve once the number is in a Messaging Service —
-  so Lookup_Contact reads the contact from the Contacts sheet the same way it would for
-  a text-in. `trigger-send.js` deliberately writes nothing to the sheet before starting
-  the execution — each Apps Script write is slow and a Twilio Function is killed at 10
-  seconds — so a contact with no `respondent_id` yet gets one derived from their phone
-  and event (keyed with a server-side secret, so it can't be reversed back to a phone
-  number), and the first saved answer records it on their row.) Lookup_Contact checks
-  the Contacts sheet for that phone:
+  path) and a plain inbound text. A REST-started execution already carries everything
+  it needs — `trigger-send.js` passes the contact's phone (as stored in the sheet),
+  name, event and a fresh `respondent_id`, which Studio exposes as `{{flow.data.*}}` —
+  so it goes straight to Q1 without calling Apps Script, and every save lands on the
+  contact's own row. (There is no `{{trigger.parameters.*}}` in Studio; an earlier
+  version of the flow read that and rendered blanks.) A text-in has no parameters, so
+  the flow first calls `/resolve-trigger-context` (Lookup_Contact widget), which
+  checks the Contacts sheet for that phone:
   - **Already a known contact** (e.g. registered for a real event with consent, but
     texted in before ever being sent a survey) — reuses their real `event`, `name`,
     and `respondent_id`, so their answers land under their actual event, not a

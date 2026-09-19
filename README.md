@@ -127,11 +127,9 @@ skipped, any extra reply after Q3 is just unused.
 `--from-trigger-send` (optionally `--event <name>`, default `Gala`) starts the
 conversation the way production does instead of as a text-in: it seeds a registered
 contact, runs the real `functions/trigger-send.js` against a fake Twilio client, then
-walks the flow from the REST trigger. The fake execution hands the flow empty
-`{{trigger.parameters.*}}` on purpose (that's what Twilio does when an execution is
-started from a Messaging Service), so it proves the flow gets everything it needs
-from `Lookup_Contact` alone, and it fails loudly if `trigger-send.js` ever starts the
-execution before writing `respondent_id` to the Contacts sheet. It can't reproduce
+walks the flow from the REST trigger, handing it the parameters `trigger-send.js`
+passes the way Twilio does (as `{{flow.data.*}}`), with the contact's phone stored with
+hidden characters to prove answers still land on the original row. It can't reproduce
 Twilio's own reply-routing behavior — that only happens on a real number.
 
 ## Testing it live

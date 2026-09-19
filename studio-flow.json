@@ -7,7 +7,7 @@
       "transitions": [
         {
           "event": "incomingRequest",
-          "next": "Lookup_Contact"
+          "next": "Q1_Send"
         },
         {
           "event": "incomingMessage",
@@ -64,7 +64,7 @@
           "x": 0,
           "y": 450
         },
-        "body": "Hi {{trigger.parameters.name | default: widgets.Lookup_Contact.parsed.name}}! We're trying to learn whether events like these are a helpful tool to get people involved in their community, and would like to ask you 3-5 quick questions. We'd appreciate it if you could take the time to answer. We won't text you again once the survey is complete. You can also text STOP at any time to opt out.\n\nHow likely are you to discuss the work being done by an organization present at this event with people in your life? Reply 1 for Very Likely .... 5 for Very Unlikely",
+        "body": "Hi {{flow.data.name | default: widgets.Lookup_Contact.parsed.name}}! This is a survey about the event you just attended. We're trying to learn whether events like these are a helpful tool to get people involved in their community, and would like to ask you 3-5 quick questions. We'd appreciate it if you could take the time to answer. We won't text you again once the survey is complete. You can also text STOP at any time to opt out.\n\nHow likely are you to discuss the work being done by an organization present at this event with people in your life? Reply 1 for Very Likely .... 5 for Very Unlikely",
         "timeout": "86400",
         "from": "{{flow.channel.address}}"
       }
@@ -93,15 +93,15 @@
         "parameters": [
           {
             "key": "respondent_id",
-            "value": "{{trigger.parameters.respondent_id | default: widgets.Lookup_Contact.parsed.respondent_id}}"
+            "value": "{{flow.data.respondent_id | default: widgets.Lookup_Contact.parsed.respondent_id}}"
           },
           {
             "key": "phone",
-            "value": "{{widgets.Lookup_Contact.parsed.phone | default: contact.channel.address}}"
+            "value": "{{flow.data.phone | default: widgets.Lookup_Contact.parsed.phone | default: contact.channel.address}}"
           },
           {
             "key": "event",
-            "value": "{{trigger.parameters.event | default: widgets.Lookup_Contact.parsed.event}}"
+            "value": "{{flow.data.event | default: widgets.Lookup_Contact.parsed.event}}"
           },
           {
             "key": "q1",
@@ -153,15 +153,15 @@
         "parameters": [
           {
             "key": "respondent_id",
-            "value": "{{trigger.parameters.respondent_id | default: widgets.Lookup_Contact.parsed.respondent_id}}"
+            "value": "{{flow.data.respondent_id | default: widgets.Lookup_Contact.parsed.respondent_id}}"
           },
           {
             "key": "phone",
-            "value": "{{widgets.Lookup_Contact.parsed.phone | default: contact.channel.address}}"
+            "value": "{{flow.data.phone | default: widgets.Lookup_Contact.parsed.phone | default: contact.channel.address}}"
           },
           {
             "key": "event",
-            "value": "{{trigger.parameters.event | default: widgets.Lookup_Contact.parsed.event}}"
+            "value": "{{flow.data.event | default: widgets.Lookup_Contact.parsed.event}}"
           },
           {
             "key": "q2",
@@ -213,15 +213,15 @@
         "parameters": [
           {
             "key": "respondent_id",
-            "value": "{{trigger.parameters.respondent_id | default: widgets.Lookup_Contact.parsed.respondent_id}}"
+            "value": "{{flow.data.respondent_id | default: widgets.Lookup_Contact.parsed.respondent_id}}"
           },
           {
             "key": "phone",
-            "value": "{{widgets.Lookup_Contact.parsed.phone | default: contact.channel.address}}"
+            "value": "{{flow.data.phone | default: widgets.Lookup_Contact.parsed.phone | default: contact.channel.address}}"
           },
           {
             "key": "event",
-            "value": "{{trigger.parameters.event | default: widgets.Lookup_Contact.parsed.event}}"
+            "value": "{{flow.data.event | default: widgets.Lookup_Contact.parsed.event}}"
           },
           {
             "key": "q3",
@@ -245,7 +245,7 @@
             {
               "friendly_name": "If value starts with 1 or 2",
               "type": "regex",
-              "value": "{{widgets.Q3_Save.parsed.q3}}",
+              "value": "{{widgets.Q3_Send.inbound.Body}}",
               "arguments": [
                 "^\\s*[12](\\D|$)"
               ]
@@ -258,7 +258,7 @@
           "x": 2400,
           "y": 1350
         },
-        "input": "{{widgets.Q3_Save.parsed.q3}}"
+        "input": "{{widgets.Q3_Send.inbound.Body}}"
       }
     },
     {
@@ -304,15 +304,15 @@
         "parameters": [
           {
             "key": "respondent_id",
-            "value": "{{trigger.parameters.respondent_id | default: widgets.Lookup_Contact.parsed.respondent_id}}"
+            "value": "{{flow.data.respondent_id | default: widgets.Lookup_Contact.parsed.respondent_id}}"
           },
           {
             "key": "phone",
-            "value": "{{widgets.Lookup_Contact.parsed.phone | default: contact.channel.address}}"
+            "value": "{{flow.data.phone | default: widgets.Lookup_Contact.parsed.phone | default: contact.channel.address}}"
           },
           {
             "key": "event",
-            "value": "{{trigger.parameters.event | default: widgets.Lookup_Contact.parsed.event}}"
+            "value": "{{flow.data.event | default: widgets.Lookup_Contact.parsed.event}}"
           },
           {
             "key": "q4",
@@ -364,15 +364,15 @@
         "parameters": [
           {
             "key": "respondent_id",
-            "value": "{{trigger.parameters.respondent_id | default: widgets.Lookup_Contact.parsed.respondent_id}}"
+            "value": "{{flow.data.respondent_id | default: widgets.Lookup_Contact.parsed.respondent_id}}"
           },
           {
             "key": "phone",
-            "value": "{{widgets.Lookup_Contact.parsed.phone | default: contact.channel.address}}"
+            "value": "{{flow.data.phone | default: widgets.Lookup_Contact.parsed.phone | default: contact.channel.address}}"
           },
           {
             "key": "event",
-            "value": "{{trigger.parameters.event | default: widgets.Lookup_Contact.parsed.event}}"
+            "value": "{{flow.data.event | default: widgets.Lookup_Contact.parsed.event}}"
           },
           {
             "key": "q5",
@@ -405,15 +405,15 @@
         "parameters": [
           {
             "key": "respondent_id",
-            "value": "{{trigger.parameters.respondent_id | default: widgets.Lookup_Contact.parsed.respondent_id}}"
+            "value": "{{flow.data.respondent_id | default: widgets.Lookup_Contact.parsed.respondent_id}}"
           },
           {
             "key": "phone",
-            "value": "{{widgets.Lookup_Contact.parsed.phone | default: contact.channel.address}}"
+            "value": "{{flow.data.phone | default: widgets.Lookup_Contact.parsed.phone | default: contact.channel.address}}"
           },
           {
             "key": "event",
-            "value": "{{trigger.parameters.event | default: widgets.Lookup_Contact.parsed.event}}"
+            "value": "{{flow.data.event | default: widgets.Lookup_Contact.parsed.event}}"
           },
           {
             "key": "completed",

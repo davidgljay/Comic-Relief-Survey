@@ -340,10 +340,7 @@ async function attachFlowToPhoneNumber(values, flowSid) {
 // confirmed live (twice) that anchoring outbound to the bare number while
 // inbound routes through the Service (or vice versa) breaks that
 // correlation, causing every reply to start a brand-new execution instead of
-// continuing the conversation. (Using the Service SID as `from` separately
-// breaks {{trigger.parameters.*}} from resolving — worked around at the flow
-// level, in scripts/generate-studio-flow.js's Lookup_Contact widget, not by
-// changing this.)
+// continuing the conversation.
 async function attachFlowToMessagingService(values, flowSid) {
   if (!values.MESSAGING_SERVICE_SID) return;
 

@@ -113,37 +113,36 @@ function wire(name, event, next) {
 }
 
 // ---- Trigger ----
-// Two ways to start an execution, both routed through Lookup_Contact:
+// Two ways to start an execution:
 //  - incomingRequest: the real path. trigger-send.js starts one execution per
-//    consenting contact via the REST API.
+//    consenting contact via the REST API, passing that contact's phone (as
+//    stored in the sheet), name, event and a fresh respondent_id. Studio
+//    exposes those as {{flow.data.*}} — NOT {{trigger.parameters.*}}, which
+//    doesn't exist (confirmed against real execution contexts). Everything
+//    the flow needs is already in hand, so this path goes straight to Q1
+//    without calling anything: the survey no longer waits on Apps Script
+//    before its first message, and a slow Apps Script can't lose answers.
 //  - incomingMessage: anyone texting the number with no active execution —
 //    either a deliberate test, or a genuinely new/unregistered number
-//    reaching out first.
-// Both paths look the phone up in the Contacts sheet via Lookup_Contact: if
-// it's already a known contact, its real event/name/respondent_id are
-// reused (a respondent_id is derived for one that has none yet, see
-// functions/lib/contact-context.private.js); otherwise it's tagged event="unknown" (never "test" — that stays
-// reserved for deliberate manual testing) with a freshly minted
-// respondent_id. See functions/resolve-trigger-context.js.
-//
-// Both paths go through this HTTP lookup rather than trusting
-// {{trigger.parameters.*}} directly, because confirmed live: starting an
-// execution with `from` set to a Messaging Service SID (required to fix a
-// separate reply-routing bug — see trigger-send.js) breaks
-// {{trigger.parameters.*}} from resolving at all in that execution.
+//    reaching out first. There are no parameters here, so Lookup_Contact
+//    looks the phone up in the Contacts sheet: a known contact's real
+//    event/name/respondent_id are reused (a respondent_id is derived for one
+//    that has none yet, see functions/lib/contact-context.private.js);
+//    otherwise it's tagged event="unknown" (never "test" — that stays
+//    reserved for deliberate manual testing). See
+//    functions/resolve-trigger-context.js.
 states.push({
   name: 'Trigger',
   type: 'trigger',
   transitions: [
-    { event: 'incomingRequest', next: 'Lookup_Contact' },
+    { event: 'incomingRequest', next: 'Q1_Send' },
     { event: 'incomingMessage', next: 'Lookup_Contact' },
   ],
   properties: { offset: offset(0) },
 });
 
 // {{contact.channel.address}} is Studio's own reference to the current
-// execution's contact phone number — populated for both trigger types
-// (unlike {{trigger.message.From}}, which only exists for incomingMessage).
+// execution's contact phone number.
 httpSave(
   'Lookup_Contact',
   [{ key: 'phone', value: '{{contact.channel.address}}' }],
@@ -153,15 +152,21 @@ httpSave(
 wire('Lookup_Contact', 'success', 'Q1_Send');
 wire('Lookup_Contact', 'failed', 'Q1_Send');
 
+// flow.data.* is set for REST-started executions; widgets.Lookup_Contact.* for
+// text-in ones (where flow.data is empty, so each `default` falls through).
+// The phone saved is the Contacts row's own stored string (flow.data.phone, or
+// the row Lookup_Contact found) — saves must use that exact string to land on
+// the original row, not Studio's cleaned-up number.
 const baseParams = () => [
   {
     key: 'respondent_id',
-    value: '{{trigger.parameters.respondent_id | default: widgets.Lookup_Contact.parsed.respondent_id}}',
+    value: '{{flow.data.respondent_id | default: widgets.Lookup_Contact.parsed.respondent_id}}',
   },
-  // The Contacts row's own stored phone, as found by Lookup_Contact — saves must use
-  // that exact string to land on the original row, not Studio's cleaned-up number.
-  { key: 'phone', value: '{{widgets.Lookup_Contact.parsed.phone | default: contact.channel.address}}' },
-  { key: 'event', value: '{{trigger.parameters.event | default: widgets.Lookup_Contact.parsed.event}}' },
+  {
+    key: 'phone',
+    value: '{{flow.data.phone | default: widgets.Lookup_Contact.parsed.phone | default: contact.channel.address}}',
+  },
+  { key: 'event', value: '{{flow.data.event | default: widgets.Lookup_Contact.parsed.event}}' },
 ];
 
 // ---- Generic question block ----
@@ -174,7 +179,7 @@ const baseParams = () => [
 function questionBlock(qkey, questionText, opts) {
   const P = qkey.toUpperCase();
   const sendBody = opts.withPreamble
-    ? `Hi {{trigger.parameters.name | default: widgets.Lookup_Contact.parsed.name}}! ${content.preamble}\n\n${questionText}`
+    ? `Hi {{flow.data.name | default: widgets.Lookup_Contact.parsed.name}}! ${content.preamble}\n\n${questionText}`
     : questionText;
 
   sendAndWait(`${P}_Send`, sendBody, opts.x);
@@ -204,7 +209,9 @@ questionBlock('q3', content.questions.q3, {
 });
 
 // ---- Gate on Q3 -> Q4 ----
-splitGate('Split_Q3Gate', '{{widgets.Q3_Save.parsed.q3}}', 2400);
+// Tests the reply itself, not the save's echo of it, so the gate doesn't depend on
+// the save call succeeding (it can be slow or fail; the survey must carry on).
+splitGate('Split_Q3Gate', '{{widgets.Q3_Send.inbound.Body}}', 2400);
 wire('Split_Q3Gate', 'match', 'Q4_Send');
 wire('Split_Q3Gate', 'noMatch', 'Q5_Send');
 

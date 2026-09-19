@@ -94,16 +94,14 @@ describe('POST /trigger-send', () => {
     // scopes replies to the service's channel identity — starting the
     // execution with the bare number instead would anchor it to a different
     // channel, breaking Twilio's "route this reply to the active execution"
-    // matching (confirmed live, twice). This does break
-    // {{trigger.parameters.*}} in the started execution — worked around at
-    // the flow level (Lookup_Contact) instead, not by changing `from`.
+    // matching (confirmed live, twice).
     expect(mockExecutionsCreate).toHaveBeenCalledWith(expect.objectContaining({ to: '+1', from: 'MGxxxx' }));
   });
 
   it('makes exactly one Apps Script write per contact, and only after the execution has started', async () => {
     // Twilio Functions are killed after 10 seconds and each Apps Script write
     // is slow, so nothing is written ahead of starting the execution: the
-    // flow's Lookup_Contact derives the respondent_id itself.
+    // execution's parameters carry everything the flow needs.
     mockCallAppsScript.mockResolvedValueOnce({
       rows: [{ values: { phone: '+15550000001', event: 'Gala', consent: 'true', sent_at: '' } }],
     });
@@ -118,15 +116,35 @@ describe('POST /trigger-send', () => {
     );
   });
 
-  it('does not put a respondent_id in the execution parameters', async () => {
+  it('passes the flow everything it needs as parameters (they arrive as flow.data.*), phone as stored', async () => {
+    const stored = '+1\u202D5550000001\u202C';
     mockCallAppsScript.mockResolvedValueOnce({
-      rows: [{ values: { phone: '+15550000001', event: 'Gala', name: 'Ada', consent: 'true', sent_at: '' } }],
+      rows: [{ values: { phone: stored, event: 'Gala', name: 'Ada', consent: 'true', sent_at: '' } }],
     });
 
     await invoke(makeContext(), { secret: 'shh', event: 'Gala' });
 
-    const { parameters } = mockExecutionsCreate.mock.calls[0][0];
-    expect(JSON.parse(parameters)).toEqual({ phone: '+15550000001', name: 'Ada', event: 'Gala' });
+    const params = JSON.parse(mockExecutionsCreate.mock.calls[0][0].parameters);
+    expect(params).toEqual({
+      phone: stored, // the sheet's own string: every save keys on it to hit the original row
+      name: 'Ada',
+      event: 'Gala',
+      respondent_id: expect.stringMatching(/^[0-9a-f-]{36}$/),
+    });
+  });
+
+  it('gives each contact their own fresh respondent_id', async () => {
+    mockCallAppsScript.mockResolvedValueOnce({
+      rows: [
+        { values: { phone: '+15550000001', event: 'Gala', consent: 'true', sent_at: '' } },
+        { values: { phone: '+15550000002', event: 'Gala', consent: 'true', sent_at: '' } },
+      ],
+    });
+
+    await invoke(makeContext(), { secret: 'shh', event: 'Gala' });
+
+    const ids = mockExecutionsCreate.mock.calls.map((c) => JSON.parse(c[0].parameters).respondent_id);
+    expect(new Set(ids).size).toBe(2);
   });
 
   it('starts every pending contact when there are more than one batch of them', async () => {

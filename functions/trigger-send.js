@@ -11,6 +11,7 @@
 // pending (no sent_at) but are not counted in `remaining`, so a failing
 // contact can't keep the loop going forever.
 const BATCH_SIZE = 10;
+const crypto = require('crypto');
 
 // What Twilio should be given as the recipient: "+" and digits only. A phone
 // typed or pasted into the sheet by hand can carry invisible Unicode direction
@@ -88,18 +89,15 @@ exports.handler = async function (context, event, callback) {
           // bare phone number as `from` instead anchors it to a *different*
           // channel identity, so Twilio can't correlate a reply back to this
           // execution and starts a brand-new one per reply instead of
-          // continuing the conversation — confirmed live, twice now (this is
-          // the fix that actually stops the repeat-Q1/duplicate-execution
-          // bug). Confirmed separately live that this breaks
-          // {{trigger.parameters.*}} from resolving in the started execution
-          // — worked around by having the flow read event/name/respondent_id
-          // back via Lookup_Contact instead of trusting trigger.parameters,
-          // rather than by touching `from`.
+          // continuing the conversation — confirmed live, twice.
           from: context.MESSAGING_SERVICE_SID || context.TWILIO_PHONE_NUMBER,
+          // Reaches the flow as {{flow.data.*}}, so the flow needs no lookup:
+          // `phone` is the sheet's own string, which every save keys on.
           parameters: JSON.stringify({
             phone: row.values.phone,
             name: row.values.name,
             event: eventName,
+            respondent_id: crypto.randomUUID(),
           }),
         });
 

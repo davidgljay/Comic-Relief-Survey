@@ -68,7 +68,7 @@ describe('scripts/simulate-survey.js', () => {
       expect(output()).toMatch(/started an execution: to \+15550001234, from MG/);
     });
 
-    it('greets the contact by name and saves under their real event, despite empty trigger.parameters', () => {
+    it('greets the contact by name and saves under their real event, from the parameters passed to the execution', () => {
       const out = output();
       expect(out).toContain('Hi Ada!');
 

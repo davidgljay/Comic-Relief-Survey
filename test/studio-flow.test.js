@@ -7,18 +7,14 @@ describe('studio-flow.json', () => {
     expect(errors).toEqual([]);
   });
 
-  it('routes both incomingRequest (REST-started) and incomingMessage (text-in) through Lookup_Contact', () => {
-    // Both paths go through this HTTP lookup rather than trusting
-    // {{trigger.parameters.*}} directly: starting an execution with `from`
-    // set to a Messaging Service SID (required so Twilio correctly routes a
-    // reply back to the active execution) breaks {{trigger.parameters.*}}
-    // from resolving at all — confirmed live.
+  it('sends a REST-started execution straight to Q1, and a text-in through Lookup_Contact first', () => {
+    // A REST-started execution already carries everything (phone, name, event,
+    // respondent_id, passed by trigger-send.js), so it must not wait on a
+    // lookup against Apps Script, which can be slow. A text-in has no
+    // parameters, so it looks the sender up.
     const trigger = flow.states.find((s) => s.name === flow.initial_state);
-    for (const eventName of ['incomingRequest', 'incomingMessage']) {
-      const event = trigger.transitions.find((t) => t.event === eventName);
-      expect(event).toBeDefined();
-      expect(event.next).toBe('Lookup_Contact');
-    }
+    expect(trigger.transitions.find((t) => t.event === 'incomingRequest').next).toBe('Q1_Send');
+    expect(trigger.transitions.find((t) => t.event === 'incomingMessage').next).toBe('Lookup_Contact');
 
     const lookup = flow.states.find((s) => s.name === 'Lookup_Contact');
     expect(lookup.type).toBe('make-http-request');
@@ -27,17 +23,31 @@ describe('studio-flow.json', () => {
     expect(lookup.transitions.find((t) => t.event === 'failed').next).toBe('Q1_Send');
   });
 
-  it('falls back to the Lookup_Contact widget\'s resolved values when trigger.parameters is empty', () => {
+  it('reads REST parameters from flow.data, the variable Studio actually sets — there is no trigger.parameters', () => {
+    // Confirmed against real execution contexts: REST-started executions expose
+    // their parameters as flow.data.* (and trigger.request.parameters). A
+    // {{trigger.parameters.*}} reference always renders blank.
+    expect(JSON.stringify(flow)).not.toContain('trigger.parameters');
+
     const q1Save = flow.states.find((s) => s.name === 'Q1_Save');
     const params = Object.fromEntries(q1Save.properties.parameters.map((p) => [p.key, p.value]));
-    expect(params.respondent_id).toContain('widgets.Lookup_Contact.parsed.respondent_id');
-    expect(params.phone).toContain('contact.channel.address');
-    expect(params.event).toContain('widgets.Lookup_Contact.parsed.event');
+    expect(params.respondent_id).toMatch(/^\{\{flow\.data\.respondent_id \| default: widgets\.Lookup_Contact\.parsed\.respondent_id\}\}$/);
+    expect(params.event).toMatch(/^\{\{flow\.data\.event \| default: widgets\.Lookup_Contact\.parsed\.event\}\}$/);
+    // The phone is the sheet's own stored string (flow.data.phone, or the row the
+    // lookup found), falling back to Studio's cleaned number only as a last resort.
+    expect(params.phone).toBe(
+      '{{flow.data.phone | default: widgets.Lookup_Contact.parsed.phone | default: contact.channel.address}}'
+    );
+
+    const q1Send = flow.states.find((s) => s.name === 'Q1_Send');
+    expect(q1Send.properties.body).toContain('{{flow.data.name | default: widgets.Lookup_Contact.parsed.name}}');
   });
 
   it('gates Question 4 on Question 3 being 1 or 2, testing the actual reply (not the pattern) as "value"', () => {
     const gate = flow.states.find((s) => s.name === 'Split_Q3Gate');
-    expect(gate.properties.input).toContain('q3');
+    // Tests the reply itself, not the save call's echo of it: the save can be
+    // slow or fail, and the survey must still route correctly.
+    expect(gate.properties.input).toBe('{{widgets.Q3_Send.inbound.Body}}');
     const match = gate.transitions.find((t) => t.event === 'match');
     expect(match.next).toBe('Q4_Send');
     // A real bug this guards against: "value" must be the Liquid expression
