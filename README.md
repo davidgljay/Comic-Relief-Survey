@@ -132,6 +132,33 @@ passes the way Twilio does (as `{{flow.data.*}}`), with the contact's phone stor
 hidden characters to prove answers still land on the original row. It can't reproduce
 Twilio's own reply-routing behavior — that only happens on a real number.
 
+## Recovering answers a failed save dropped
+
+Each reply is saved to the Sheets by a separate call to Apps Script, and if that call
+fails (Apps Script is slow or returns an error) nothing retries it and nothing alerts
+anyone — the survey just carries on. But every reply is also kept in its Studio
+execution, so a dropped answer can be rebuilt from Twilio:
+
+```bash
+npm run reconcile                        # dry run: lists what it WOULD write, writes nothing
+npm run reconcile -- --apply             # writes it
+npm run reconcile -- --since 2026-09-01  # only executions created on/after that date
+npm run reconcile -- --all               # also re-send executions that look complete
+```
+
+Run it after an event (and again any time you suspect a gap). It is safe to re-run: the
+write is an upsert, an answer someone edited by hand in the Contacts sheet is never
+overwritten, and an execution superseded by a newer send to the same contact is skipped.
+It needs the `.env` values `ACCOUNT_SID`, `AUTH_TOKEN`, `STUDIO_FLOW_SID`,
+`APPS_SCRIPT_URL` and `APPS_SCRIPT_SECRET`, and prints phone numbers masked to their
+last four digits.
+
+Limits: Twilio keeps execution data for a limited time (check your account's retention),
+so reconcile soon after an event rather than months later. The anonymous sheet can't be
+read back, so if only *it* is missing something, use `--all` to re-send. Executions from
+before the flow passed a `respondent_id` (early test runs) are skipped, since there's
+no id to save them under.
+
 ## Testing it live
 
 After deploying, just **text the Twilio number** — no API call needed. The flow
