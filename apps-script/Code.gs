@@ -144,9 +144,22 @@ function rowsFromValues_(values) {
   return { header, rows };
 }
 
+// Phone numbers are compared by digits only. What's typed or pasted into the
+// sheet by hand routinely differs from what Twilio reports for the same number
+// — invisible Unicode direction marks copied from a contacts app or chat, a
+// dropped leading "+" (Sheets turns a numeric-looking cell into a number), stray
+// spaces or dashes — and an exact string match then fails silently: the lookup
+// reports "unknown contact" and answers land on a brand-new row instead of the
+// original contact's.
+function normalizeKey_(keyColumn, value) {
+  const text = value === undefined || value === null ? '' : String(value);
+  return keyColumn === 'phone' ? text.replace(/\D/g, '') : text;
+}
+
 function findRow_(sheet, keyColumn, keyValue) {
   const { header, rows } = listRows_(sheet);
-  const match = rows.find((r) => r.values[keyColumn] === keyValue);
+  const wanted = normalizeKey_(keyColumn, keyValue);
+  const match = wanted === '' ? undefined : rows.find((r) => normalizeKey_(keyColumn, r.values[keyColumn]) === wanted);
   return { header, rowNumber: match ? match.rowNumber : null, values: match ? match.values : null };
 }
 

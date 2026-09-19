@@ -141,4 +141,40 @@ describe('findRow_', () => {
     expect(rowNumber).toBeNull();
     expect(values).toBeNull();
   });
+
+  describe('phone matching ignores formatting', () => {
+    const messy = fakeFullSheet([
+      ['phone', 'name', 'event', 'respondent_id'],
+      // invisible direction marks (U+202D ... U+202C), as copied from a contacts app
+      ['+1\u202D3142107659\u202C', 'Ada', 'fall-gala', 'uuid-1'],
+      // "+" dropped, as Sheets does to a numeric-looking cell
+      [15553334444, 'Grace', 'fall-gala', 'uuid-2'],
+      ['(555) 777-8888', 'Lin', 'fall-gala', 'uuid-3'],
+    ]);
+
+    it('finds a contact whose stored phone has invisible characters', () => {
+      expect(findRow_(messy, 'phone', '+13142107659').values.name).toBe('Ada');
+    });
+
+    it('finds a contact whose stored phone lost its leading +', () => {
+      expect(findRow_(messy, 'phone', '+15553334444').values.name).toBe('Grace');
+    });
+
+    it('matches in either direction, and ignores spaces/dashes/parentheses', () => {
+      expect(findRow_(messy, 'phone', '+1\u202D3142107659\u202C').values.name).toBe('Ada');
+      expect(findRow_(messy, 'phone', '5557778888').values.name).toBe('Lin');
+    });
+
+    it('never treats a blank phone as matching a row', () => {
+      const blank = fakeFullSheet([['phone', 'name'], ['', 'Nobody']]);
+      expect(findRow_(blank, 'phone', '').rowNumber).toBeNull();
+      expect(findRow_(blank, 'phone', undefined).rowNumber).toBeNull();
+    });
+
+    it('still compares other key columns exactly', () => {
+      const s = fakeFullSheet([['respondent_id', 'q1'], ['ABC-123', '1']]);
+      expect(findRow_(s, 'respondent_id', 'abc123').rowNumber).toBeNull();
+      expect(findRow_(s, 'respondent_id', 'ABC-123').rowNumber).toBe(2);
+    });
+  });
 });
