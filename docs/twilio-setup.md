@@ -202,6 +202,15 @@ analysis — see handoff, §8.
   `POST https://<deployed-domain>.twil.io/trigger-send?secret=<TRIGGER_SEND_SECRET>&event=<event-name>`
 - This starts one Studio execution per consenting, not-yet-sent contact for that event,
   and marks each as sent so a retry or a second cron fire won't double-message anyone.
+- **Large events: use `limit`.** Twilio Functions are killed after 10 seconds and each
+  contact costs a few slow Apps Script calls (contacts are started 10 at a time), so
+  more than a few dozen contacts won't finish in one call. Add `&limit=20` (a safe
+  starting size) and call again until the response's `remaining` is `0`:
+  `{"started": 20, "failed": [], "remaining": 130}`. Each call picks up only contacts
+  not yet sent, so repeating it is safe. A contact that failed to start stays unsent
+  and is listed under `failed`, but is not counted in `remaining`, so one bad number
+  can't keep the loop going forever. Without `limit`, everything pending is attempted
+  in a single call.
 - Every inbound reply during the survey triggers a save to both Sheets immediately (via
   the flow's "Make HTTP Request" widgets), so a partially-completed survey still leaves
   partial answers on record — nothing waits until the flow finishes.

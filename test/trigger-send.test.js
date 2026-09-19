@@ -129,8 +129,28 @@ describe('POST /trigger-send', () => {
 
     const response = await invoke(makeContext(), { secret: 'shh', event: 'Gala' });
 
-    expect(response.body).toEqual({ started: 23, failed: [] });
+    expect(response.body).toEqual({ started: 23, failed: [], remaining: 0 });
     expect(mockExecutionsCreate).toHaveBeenCalledTimes(23);
+  });
+
+  it('starts at most `limit` contacts and reports how many are left', async () => {
+    const rows = Array.from({ length: 5 }, (_, i) => ({
+      values: { phone: `+1555000${i}`, event: 'Gala', consent: 'true', sent_at: '' },
+    }));
+    mockCallAppsScript.mockResolvedValueOnce({ rows });
+
+    const response = await invoke(makeContext(), { secret: 'shh', event: 'Gala', limit: '2' });
+
+    expect(response.body).toEqual({ started: 2, failed: [], remaining: 3 });
+    expect(mockExecutionsCreate).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects a limit that is not a positive integer', async () => {
+    for (const limit of ['0', '-1', 'abc', '1.5']) {
+      const response = await invoke(makeContext(), { secret: 'shh', event: 'Gala', limit });
+      expect(response.statusCode).toBe(400);
+    }
+    expect(mockCallAppsScript).not.toHaveBeenCalled();
   });
 
   it('does not mark a contact sent if starting their execution fails', async () => {

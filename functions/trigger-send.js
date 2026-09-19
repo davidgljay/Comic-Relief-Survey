@@ -1,7 +1,15 @@
-// POST /trigger-send?secret=...&event=...
+// POST /trigger-send?secret=...&event=...[&limit=N]
 // Called by an external cron job (owned by Comic Relief) at the planned post-event
 // send time. Starts a Studio Flow execution for every consenting, not-yet-sent
 // contact for the given event, then marks them sent so retries don't double-send.
+//
+// Twilio Functions are killed after 10 seconds, and each contact costs a few
+// slow Apps Script round trips, so a big event can't be sent in one call.
+// Pass `limit` to start at most that many contacts per call; the response's
+// `remaining` is how many pending contacts were left untouched, so the cron
+// job can simply call again until `remaining` is 0. Contacts that fail stay
+// pending (no sent_at) but are not counted in `remaining`, so a failing
+// contact can't keep the loop going forever.
 const crypto = require('crypto');
 
 const BATCH_SIZE = 10;
@@ -28,6 +36,16 @@ exports.handler = async function (context, event, callback) {
     return callback(null, response);
   }
 
+  let limit = Infinity;
+  if (event.limit !== undefined && event.limit !== '') {
+    limit = Number(event.limit);
+    if (!Number.isInteger(limit) || limit < 1) {
+      response.setStatusCode(400);
+      response.setBody({ error: 'limit must be a positive integer' });
+      return callback(null, response);
+    }
+  }
+
   let rows;
   try {
     ({ rows } = await callAppsScript(context, 'list_rows', {}));
@@ -45,8 +63,9 @@ exports.handler = async function (context, event, callback) {
       !r.values.sent_at
   );
 
+  const batch = pending.slice(0, limit);
   const client = context.getTwilioClient();
-  const results = { started: 0, failed: [] };
+  const results = { started: 0, failed: [], remaining: pending.length - batch.length };
 
   const startOne = async (row) => {
     const respondentId = crypto.randomUUID();
@@ -109,9 +128,9 @@ exports.handler = async function (context, event, callback) {
   // killed after 10 seconds, so a sequential loop times out with only a
   // handful of contacts. Batches keep concurrent Apps Script executions
   // bounded (it caps simultaneous executions per script).
-  for (let i = 0; i < pending.length; i += BATCH_SIZE) {
+  for (let i = 0; i < batch.length; i += BATCH_SIZE) {
     // eslint-disable-next-line no-await-in-loop
-    await Promise.all(pending.slice(i, i + BATCH_SIZE).map(startOne));
+    await Promise.all(batch.slice(i, i + BATCH_SIZE).map(startOne));
   }
 
   response.setStatusCode(200);
