@@ -77,9 +77,15 @@ async function callAppsScript(context, action, params) {
   // content host — most HTTP clients don't follow redirects on POST
   // automatically, so this is followed explicitly (as a GET, per Apps
   // Script's own behavior: the redirect target already has the full result).
-  if ([301, 302, 303].includes(response.statusCode) && response.headers.location) {
+  // Usually a single hop, but right after publishing a new deployment
+  // version, Google's routing layer sometimes bounces through a second
+  // redirect before landing on the current version — so follow up to a
+  // few hops, not just one.
+  let redirects = 0;
+  while ([301, 302, 303].includes(response.statusCode) && response.headers.location && redirects < 5) {
     step = 'GET (redirect) ' + response.headers.location;
     response = await request(response.headers.location, 'GET');
+    redirects += 1;
   }
 
   if (response.statusCode < 200 || response.statusCode >= 300) {

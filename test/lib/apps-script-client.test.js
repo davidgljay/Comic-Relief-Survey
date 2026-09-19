@@ -59,6 +59,22 @@ describe('callAppsScript', () => {
     expect(redirectOptions.method).toBe('GET');
   });
 
+  it('follows a second redirect, as sometimes happens right after publishing a new deployment version', async () => {
+    mockRequest
+      .mockImplementationOnce(
+        fakeResponse({ statusCode: 302, headers: { location: 'https://script.googleusercontent.com/echo?x=1' }, body: '' })
+      )
+      .mockImplementationOnce(
+        fakeResponse({ statusCode: 302, headers: { location: 'https://script.googleusercontent.com/echo?x=2' }, body: '' })
+      )
+      .mockImplementationOnce(fakeResponse({ statusCode: 200, body: JSON.stringify({ ok: true }) }));
+
+    const result = await callAppsScript(context, 'save_response', { phone: '+1' });
+
+    expect(result).toEqual({ ok: true });
+    expect(mockRequest).toHaveBeenCalledTimes(3);
+  });
+
   it('throws when the response is not JSON', async () => {
     mockRequest.mockImplementation(fakeResponse({ statusCode: 200, body: '<html>not json</html>' }));
 
