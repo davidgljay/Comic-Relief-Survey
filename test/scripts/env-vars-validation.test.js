@@ -69,6 +69,22 @@ describe('CONTACTS_SHEET_ID / ANONYMOUS_SHEET_ID validation and parsing', () => 
   }
 });
 
+describe('MESSAGING_SERVICE_SID validation', () => {
+  const { validate, optional } = defFor('MESSAGING_SERVICE_SID');
+
+  it('is optional (not every number is in a Messaging Service)', () => {
+    expect(optional).toBe(true);
+  });
+
+  it('accepts a real Messaging Service SID', () => {
+    expect(validate('MG' + '0'.repeat(32))).toBeNull();
+  });
+
+  it('rejects an Account SID typed into the wrong field', () => {
+    expect(validate('AC' + '0'.repeat(32))).not.toBeNull();
+  });
+});
+
 describe('APPS_SCRIPT_URL validation', () => {
   const { validate } = defFor('APPS_SCRIPT_URL');
 

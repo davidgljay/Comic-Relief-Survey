@@ -87,6 +87,18 @@ cut a new deployment version (§3 step 12), then re-run `npm run deploy --skip-e
      this step, texting the number does nothing at all, and it's easy to miss since
      the deploy otherwise looks fully successful. Safe to re-run: it just re-sets the
      same webhook.
+   - If `MESSAGING_SERVICE_SID` is set in `.env`, also points that Messaging Service's
+     own inbound routing at the Studio Flow. **This matters if your number is assigned
+     to a Messaging Service** (common once A2P 10DLC registration is set up, per §0):
+     a Messaging Service's own Integration settings silently override the phone
+     number's own webhook for inbound SMS, so without this, replies to a live survey
+     never reach the flow — even though the number-level webhook (previous bullet)
+     looks completely correct. Symptom if this is missing: the outbound question
+     sends fine, but a reply spins up a brand-new, unrelated execution (tagged
+     `event="unknown"`) instead of continuing the survey, since Twilio never routes
+     the reply into the flow's already-active execution. Check Console > Messaging >
+     Services to see if your number is listed as a sender under any service; if so,
+     copy that service's SID into `.env`'s `MESSAGING_SERVICE_SID`.
    - Offers to watch the Contacts sheet for the row a live test text produces (see
      §7).
    - Re-run any time with `npm run deploy` — it's idempotent (updates the existing

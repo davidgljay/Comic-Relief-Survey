@@ -85,6 +85,17 @@ const ENV_VARS = [
     secret: true,
     autoGenerate: true,
   },
+  {
+    key: 'MESSAGING_SERVICE_SID',
+    prompt: 'Messaging Service SID (only if TWILIO_PHONE_NUMBER is in one)',
+    help: 'Twilio Console > Messaging > Services — only relevant if your number is assigned to a Messaging ' +
+      'Service (common once A2P 10DLC registration is set up). A Messaging Service routes inbound SMS through ' +
+      'its own Integration settings, which silently override the phone number\'s own webhook — so if your ' +
+      'number is in one, this is required for replies to actually reach the Studio Flow. Leave blank if your ' +
+      'number isn\'t in a Messaging Service.',
+    optional: true,
+    validate: (v) => (/^MG[0-9a-f]{32}$/i.test(v) ? null : 'must start with "MG" followed by 32 hex characters'),
+  },
 ];
 
 const REQUIRED_KEYS = ENV_VARS.filter((v) => !v.optional).map((v) => v.key);
@@ -281,6 +292,28 @@ async function attachFlowToPhoneNumber(values, flowSid) {
   console.log(`${values.TWILIO_PHONE_NUMBER}'s "A message comes in" webhook now points at Flow ${flowSid}.`);
 }
 
+// A Messaging Service's own Integration settings silently override the
+// per-number webhook attachFlowToPhoneNumber just set, for any number
+// assigned to one (common once A2P 10DLC registration is set up) — so
+// without this, replies never reach the flow even though the number-level
+// webhook looks correct. Only runs if MESSAGING_SERVICE_SID is set; a no-op
+// otherwise, since not every number is in a Messaging Service.
+async function attachFlowToMessagingService(values, flowSid) {
+  if (!values.MESSAGING_SERVICE_SID) return;
+
+  const twilio = require('twilio');
+  const client = twilio(values.ACCOUNT_SID, values.AUTH_TOKEN);
+
+  console.log('\n--- Attaching the Studio Flow to the Messaging Service ---\n');
+  const webhookUrl = `https://webhooks.twilio.com/v1/Accounts/${values.ACCOUNT_SID}/Flows/${flowSid}`;
+  await client.messaging.v1.services(values.MESSAGING_SERVICE_SID).update({
+    inboundRequestUrl: webhookUrl,
+    inboundMethod: 'POST',
+    useInboundWebhookOnNumber: false,
+  });
+  console.log(`Messaging Service ${values.MESSAGING_SERVICE_SID}'s inbound routing now points at Flow ${flowSid}.`);
+}
+
 function appsScriptContext(values) {
   return { APPS_SCRIPT_URL: values.APPS_SCRIPT_URL, APPS_SCRIPT_SECRET: values.APPS_SCRIPT_SECRET };
 }
@@ -395,6 +428,7 @@ async function main() {
     }
 
     await attachFlowToPhoneNumber(values, sid);
+    await attachFlowToMessagingService(values, sid);
 
     console.log('\n=== Deployed ===');
     console.log(`Text ${values.TWILIO_PHONE_NUMBER} from your phone to manually walk the survey — no API call`);
