@@ -121,6 +121,18 @@ describe('POST /trigger-send', () => {
     expect(upsertCalls[1][2]).toEqual(expect.objectContaining({ phone: '+1', sent_at: expect.any(String) }));
   });
 
+  it('starts every pending contact when there are more than one batch of them', async () => {
+    const rows = Array.from({ length: 23 }, (_, i) => ({
+      values: { phone: `+1555000${String(i).padStart(4, '0')}`, event: 'Gala', consent: 'true', sent_at: '' },
+    }));
+    mockCallAppsScript.mockResolvedValueOnce({ rows });
+
+    const response = await invoke(makeContext(), { secret: 'shh', event: 'Gala' });
+
+    expect(response.body).toEqual({ started: 23, failed: [] });
+    expect(mockExecutionsCreate).toHaveBeenCalledTimes(23);
+  });
+
   it('does not mark a contact sent if starting their execution fails', async () => {
     mockCallAppsScript.mockResolvedValueOnce({
       rows: [{ values: { phone: '+1', event: 'Gala', consent: 'true', sent_at: '' } }],

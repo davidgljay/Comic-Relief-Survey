@@ -4,6 +4,8 @@
 // contact for the given event, then marks them sent so retries don't double-send.
 const crypto = require('crypto');
 
+const BATCH_SIZE = 10;
+
 exports.handler = async function (context, event, callback) {
   // Required inside the handler, not at module top level — see the comment
   // in functions/save-response.js for why a plain relative require breaks
@@ -46,7 +48,7 @@ exports.handler = async function (context, event, callback) {
   const client = context.getTwilioClient();
   const results = { started: 0, failed: [] };
 
-  for (const row of pending) {
+  const startOne = async (row) => {
     const respondentId = crypto.randomUUID();
     try {
       // Written *before* starting the execution, not after: the flow's
@@ -100,6 +102,16 @@ exports.handler = async function (context, event, callback) {
       console.error(err);
       results.failed.push(row.values.phone);
     }
+  };
+
+  // Contacts are processed concurrently, in small batches: each contact costs
+  // two Apps Script round trips plus a Studio call, and Twilio Functions are
+  // killed after 10 seconds, so a sequential loop times out with only a
+  // handful of contacts. Batches keep concurrent Apps Script executions
+  // bounded (it caps simultaneous executions per script).
+  for (let i = 0; i < pending.length; i += BATCH_SIZE) {
+    // eslint-disable-next-line no-await-in-loop
+    await Promise.all(pending.slice(i, i + BATCH_SIZE).map(startOne));
   }
 
   response.setStatusCode(200);
