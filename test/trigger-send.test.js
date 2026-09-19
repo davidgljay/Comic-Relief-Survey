@@ -82,6 +82,22 @@ describe('POST /trigger-send', () => {
     );
   });
 
+  it('starts executions from the Messaging Service, not the bare number, when one is configured', async () => {
+    mockCallAppsScript.mockResolvedValueOnce({
+      rows: [{ values: { phone: '+1', event: 'Gala', consent: 'true', sent_at: '' } }],
+    });
+
+    await invoke(makeContext({ MESSAGING_SERVICE_SID: 'MGxxxx' }), { secret: 'shh', event: 'Gala' });
+
+    // Inbound routing for a number in a Messaging Service is delegated to the
+    // service (see attachFlowToMessagingService in scripts/deploy.js), which
+    // scopes replies to the service's channel identity — starting the
+    // execution with the bare number instead would anchor it to a different
+    // channel, breaking Twilio's "route this reply to the active execution"
+    // matching. See functions/trigger-send.js for the full explanation.
+    expect(mockExecutionsCreate).toHaveBeenCalledWith(expect.objectContaining({ to: '+1', from: 'MGxxxx' }));
+  });
+
   it('collects per-contact failures without aborting the batch', async () => {
     mockCallAppsScript.mockResolvedValueOnce({
       rows: [

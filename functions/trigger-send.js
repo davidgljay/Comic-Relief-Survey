@@ -53,7 +53,16 @@ exports.handler = async function (context, event, callback) {
         .flows(context.STUDIO_FLOW_SID)
         .executions.create({
           to: row.values.phone,
-          from: context.TWILIO_PHONE_NUMBER,
+          // If the number is in a Messaging Service, its inbound routing is
+          // delegated there (see attachFlowToMessagingService in
+          // scripts/deploy.js), which scopes the reply to the Messaging
+          // Service's own channel identity. Starting the execution with the
+          // bare phone number as `from` instead anchors it to a *different*
+          // channel identity, so Twilio can't correlate a reply back to this
+          // execution and starts a brand-new one per reply instead of
+          // continuing the conversation. Using the same Messaging Service SID
+          // here keeps both directions on the same channel identity.
+          from: context.MESSAGING_SERVICE_SID || context.TWILIO_PHONE_NUMBER,
           parameters: JSON.stringify({
             phone: row.values.phone,
             name: row.values.name,
