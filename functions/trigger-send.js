@@ -10,8 +10,6 @@
 // job can simply call again until `remaining` is 0. Contacts that fail stay
 // pending (no sent_at) but are not counted in `remaining`, so a failing
 // contact can't keep the loop going forever.
-const crypto = require('crypto');
-
 const BATCH_SIZE = 10;
 
 // What Twilio should be given as the recipient: "+" and digits only. A phone
@@ -78,20 +76,7 @@ exports.handler = async function (context, event, callback) {
   const errors = [];
 
   const startOne = async (row) => {
-    const respondentId = crypto.randomUUID();
     try {
-      // Written *before* starting the execution, not after: the flow's
-      // Lookup_Contact widget (see scripts/generate-studio-flow.js) reads
-      // this contact's row right at the start of every execution, REST-
-      // triggered ones included — {{trigger.parameters.*}} isn't reliable
-      // here (see the `from` comment below), so this is the real source of
-      // truth for respondent_id/event. Writing it first means Lookup_Contact
-      // can never race ahead of it and read a stale/missing value.
-      await callAppsScript(context, 'upsert_contact', {
-        phone: row.values.phone,
-        respondent_id: respondentId,
-      });
-
       await client.studio.v2
         .flows(context.STUDIO_FLOW_SID)
         .executions.create({
@@ -107,15 +92,14 @@ exports.handler = async function (context, event, callback) {
           // the fix that actually stops the repeat-Q1/duplicate-execution
           // bug). Confirmed separately live that this breaks
           // {{trigger.parameters.*}} from resolving in the started execution
-          // — worked around above/below by having the flow read
-          // respondent_id/event/phone back via Lookup_Contact instead of
-          // trusting trigger.parameters, rather than by touching `from`.
+          // — worked around by having the flow read event/name/respondent_id
+          // back via Lookup_Contact instead of trusting trigger.parameters,
+          // rather than by touching `from`.
           from: context.MESSAGING_SERVICE_SID || context.TWILIO_PHONE_NUMBER,
           parameters: JSON.stringify({
             phone: row.values.phone,
             name: row.values.name,
             event: eventName,
-            respondent_id: respondentId,
           }),
         });
 

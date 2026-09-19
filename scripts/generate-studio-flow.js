@@ -115,16 +115,14 @@ function wire(name, event, next) {
 // ---- Trigger ----
 // Two ways to start an execution, both routed through Lookup_Contact:
 //  - incomingRequest: the real path. trigger-send.js starts one execution per
-//    consenting contact via the REST API. It writes that contact's fresh
-//    respondent_id to the Contacts sheet *before* starting the execution
-//    (see trigger-send.js), so Lookup_Contact reading it back here always
-//    gets the right value.
+//    consenting contact via the REST API.
 //  - incomingMessage: anyone texting the number with no active execution —
 //    either a deliberate test, or a genuinely new/unregistered number
 //    reaching out first.
 // Both paths look the phone up in the Contacts sheet via Lookup_Contact: if
 // it's already a known contact, its real event/name/respondent_id are
-// reused; otherwise it's tagged event="unknown" (never "test" — that stays
+// reused (a respondent_id is derived for one that has none yet, see
+// functions/lib/contact-context.private.js); otherwise it's tagged event="unknown" (never "test" — that stays
 // reserved for deliberate manual testing) with a freshly minted
 // respondent_id. See functions/resolve-trigger-context.js.
 //

@@ -131,4 +131,51 @@ describe('resolveContactContext', () => {
       expect(result.event).toBe('unknown');
     });
   });
+
+  describe('derived respondent_id (for a contact whose row has none yet)', () => {
+    const ctx = (secret) => ({ ...context, TRIGGER_SEND_SECRET: secret });
+    const row = (event) => sheet({ phone: '+13142107659', event, name: 'Ada' });
+
+    it('is stable across calls for the same contact and event', async () => {
+      mockCallAppsScript.mockResolvedValue(row('Gala'));
+
+      const a = await resolveContactContext(ctx('s1'), '+13142107659');
+      const b = await resolveContactContext(ctx('s1'), '+13142107659');
+
+      expect(a.respondentId).toBe(b.respondentId);
+    });
+
+    it('differs per event, so the same person surveyed at two events gets two ids', async () => {
+      mockCallAppsScript.mockResolvedValueOnce(row('Gala')).mockResolvedValueOnce(row('Picnic'));
+
+      const a = await resolveContactContext(ctx('s1'), '+13142107659');
+      const b = await resolveContactContext(ctx('s1'), '+13142107659');
+
+      expect(a.respondentId).not.toBe(b.respondentId);
+    });
+
+    it('depends on the server secret, and is not a plain hash of the phone number', async () => {
+      const crypto = require('crypto');
+      mockCallAppsScript.mockResolvedValue(row('Gala'));
+
+      const a = await resolveContactContext(ctx('s1'), '+13142107659');
+      const b = await resolveContactContext(ctx('s2'), '+13142107659');
+
+      expect(a.respondentId).not.toBe(b.respondentId);
+      // An unkeyed hash could be reversed by hashing every possible number.
+      for (const guess of ['+13142107659', '3142107659', '3142107659|Gala']) {
+        expect(a.respondentId).not.toBe(crypto.createHash('sha256').update(guess).digest('hex'));
+      }
+    });
+
+    it('is the same whichever phone format the sheet and Twilio use', async () => {
+      mockCallAppsScript.mockResolvedValueOnce(sheet({ phone: '+13142107659', event: 'Gala', name: 'A' }));
+      mockCallAppsScript.mockResolvedValueOnce(sheet({ phone: '+1\u202D3142107659\u202C', event: 'Gala', name: 'A' }));
+
+      const a = await resolveContactContext(ctx('s1'), '+13142107659');
+      const b = await resolveContactContext(ctx('s1'), '+13142107659');
+
+      expect(a.respondentId).toBe(b.respondentId);
+    });
+  });
 });

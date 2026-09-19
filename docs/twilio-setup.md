@@ -271,9 +271,13 @@ into both Sheets, so don't leave the URL somewhere it could be hit by anyone els
   `/resolve-trigger-context` call (Lookup_Contact widget) before Q1. (The REST path
   doesn't rely on the parameters passed at execution-creation time for this — confirmed
   live that those don't reliably resolve once the number is in a Messaging Service —
-  so `trigger-send.js` writes the contact's `respondent_id` to the Contacts sheet
-  *before* starting the execution, and Lookup_Contact reads it back the same way it
-  would for a text-in.) Lookup_Contact checks the Contacts sheet for that phone:
+  so Lookup_Contact reads the contact from the Contacts sheet the same way it would for
+  a text-in. `trigger-send.js` deliberately writes nothing to the sheet before starting
+  the execution — each Apps Script write is slow and a Twilio Function is killed at 10
+  seconds — so a contact with no `respondent_id` yet gets one derived from their phone
+  and event (keyed with a server-side secret, so it can't be reversed back to a phone
+  number), and the first saved answer records it on their row.) Lookup_Contact checks
+  the Contacts sheet for that phone:
   - **Already a known contact** (e.g. registered for a real event with consent, but
     texted in before ever being sent a survey) — reuses their real `event`, `name`,
     and `respondent_id`, so their answers land under their actual event, not a

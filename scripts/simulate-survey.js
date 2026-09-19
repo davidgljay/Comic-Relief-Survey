@@ -23,9 +23,10 @@
 // {{trigger.parameters.*}}, mimicking what Twilio does when an execution is
 // started with a Messaging Service SID as `from` (see trigger-send.js) — so
 // this proves the flow gets respondent_id/event/name from Lookup_Contact
-// alone. It also fails loudly if trigger-send.js ever starts the execution
-// before writing respondent_id to the Contacts sheet, which would let
-// Lookup_Contact read a stale value in production.
+// alone. trigger-send.js writes nothing to the sheet before starting the
+// execution (each Apps Script write is slow and the function has 10 seconds),
+// so the respondent_id here is derived by Lookup_Contact and recorded by the
+// first save.
 //
 // A scripted reply list only needs to cover what actually gets asked — once
 // Q4 is skipped (or the flow ends), remaining replies are simply unused.
@@ -130,17 +131,6 @@ async function runTriggerSend(eventName) {
           flows: () => ({
             executions: {
               async create(args) {
-                // In production, Studio's Lookup_Contact reads this row as
-                // soon as the execution starts — so respondent_id has to be
-                // there already.
-                const digits = (p) => String(p).replace(/\D/g, '');
-                const storedRow = [...contactsSheet.values()].find((row) => digits(row.phone) === digits(args.to));
-                if (!storedRow?.respondent_id) {
-                  throw new Error(
-                    'trigger-send.js started the execution before writing respondent_id to the Contacts sheet — ' +
-                      "Lookup_Contact would read a stale value in production"
-                  );
-                }
                 executions.push({ ...args, to: cleanedByTwilio(args.to) });
                 return {};
               },

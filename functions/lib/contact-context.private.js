@@ -35,28 +35,37 @@ async function resolveContactContext(context, phone) {
       phone: contact.phone,
       event: contact.event || 'unknown',
       name: contact.name || 'there',
-      respondentId: contact.respondent_id || unknownRespondentId(phone),
+      respondentId: contact.respondent_id || respondentIdFor(context, contact.phone, contact.event || 'unknown'),
     };
   }
 
   // A genuinely unregistered number — no prior row, so no real event/consent
   // on file. Tagged "unknown" (never "test") so it's distinguishable from
-  // deliberate manual testing in the Sheets. respondent_id is derived
-  // deterministically from the phone number (not crypto.randomUUID()) so
-  // repeat calls for the same number — e.g. successive /simulate-response
-  // calls for Q1, Q2, Q3..., which each resolve contact context independently
-  // with no Studio execution state tying them together — land on the same
-  // Anonymous-sheet row instead of a new one every time.
-  return { phone, event: 'unknown', name: 'there', respondentId: unknownRespondentId(phone) };
+  // deliberate manual testing in the Sheets. respondent_id is derived (see
+  // respondentIdFor), not random, so repeat calls land on the same row.
+  return { phone, event: 'unknown', name: 'there', respondentId: respondentIdFor(context, phone, 'unknown') };
 }
 
 function digitsOf(value) {
   return String(value === undefined || value === null ? '' : value).replace(/\D/g, '');
 }
 
-function unknownRespondentId(phone) {
+// A stable id for a (contact, event) pair, so nothing has to be written to the
+// sheet ahead of time for the flow to know it: trigger-send.js starts the
+// execution without a pre-write (a slow Apps Script call that, together with
+// the rest of its work, pushed it past Twilio's 10-second limit), and the
+// first save then records the id on the contact's row. Repeat calls for the
+// same contact and event — e.g. successive /simulate-response calls, which each
+// resolve context independently — land on the same Anonymous-sheet row.
+//
+// Keyed with a server-side secret (HMAC), not a bare hash: the Anonymous sheet
+// is meant to hold no PII, and an unkeyed hash of a phone number can be
+// reversed by hashing every possible number.
+function respondentIdFor(context, phone, event) {
   const crypto = require('crypto');
-  return crypto.createHash('sha256').update(phone).digest('hex');
+  const key = context.TRIGGER_SEND_SECRET || context.APPS_SCRIPT_SECRET || '';
+  const lastTenDigits = String(phone).replace(/\D/g, '').slice(-10);
+  return crypto.createHmac('sha256', key).update(`${lastTenDigits}|${event}`).digest('hex');
 }
 
 module.exports = { resolveContactContext };

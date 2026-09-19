@@ -100,25 +100,33 @@ describe('POST /trigger-send', () => {
     expect(mockExecutionsCreate).toHaveBeenCalledWith(expect.objectContaining({ to: '+1', from: 'MGxxxx' }));
   });
 
-  it('writes respondent_id to the Contacts sheet before starting the execution, not after', async () => {
+  it('makes exactly one Apps Script write per contact, and only after the execution has started', async () => {
+    // Twilio Functions are killed after 10 seconds and each Apps Script write
+    // is slow, so nothing is written ahead of starting the execution: the
+    // flow's Lookup_Contact derives the respondent_id itself.
     mockCallAppsScript.mockResolvedValueOnce({
-      rows: [{ values: { phone: '+1', event: 'Gala', consent: 'true', sent_at: '' } }],
+      rows: [{ values: { phone: '+15550000001', event: 'Gala', consent: 'true', sent_at: '' } }],
     });
 
     await invoke(makeContext(), { secret: 'shh', event: 'Gala' });
 
-    // The flow's Lookup_Contact widget reads this contact's row right at the
-    // start of every execution — if respondent_id were written after
-    // starting the execution instead, Lookup_Contact could race ahead and
-    // read a stale/missing value.
-    const upsertCalls = mockCallAppsScript.mock.calls.filter((c) => c[1] === 'upsert_contact');
-    expect(upsertCalls[0][2]).toEqual(expect.objectContaining({ phone: '+1', respondent_id: expect.any(String) }));
-    expect(upsertCalls[0][2]).not.toHaveProperty('sent_at');
-    expect(mockCallAppsScript.mock.invocationCallOrder[mockCallAppsScript.mock.calls.indexOf(upsertCalls[0])]).toBeLessThan(
+    const upserts = mockCallAppsScript.mock.calls.filter((c) => c[1] === 'upsert_contact');
+    expect(upserts).toHaveLength(1);
+    expect(upserts[0][2]).toEqual({ phone: '+15550000001', sent_at: expect.any(String) });
+    expect(mockCallAppsScript.mock.invocationCallOrder[mockCallAppsScript.mock.calls.indexOf(upserts[0])]).toBeGreaterThan(
       mockExecutionsCreate.mock.invocationCallOrder[0]
     );
+  });
 
-    expect(upsertCalls[1][2]).toEqual(expect.objectContaining({ phone: '+1', sent_at: expect.any(String) }));
+  it('does not put a respondent_id in the execution parameters', async () => {
+    mockCallAppsScript.mockResolvedValueOnce({
+      rows: [{ values: { phone: '+15550000001', event: 'Gala', name: 'Ada', consent: 'true', sent_at: '' } }],
+    });
+
+    await invoke(makeContext(), { secret: 'shh', event: 'Gala' });
+
+    const { parameters } = mockExecutionsCreate.mock.calls[0][0];
+    expect(JSON.parse(parameters)).toEqual({ phone: '+15550000001', name: 'Ada', event: 'Gala' });
   });
 
   it('starts every pending contact when there are more than one batch of them', async () => {
@@ -164,7 +172,7 @@ describe('POST /trigger-send', () => {
     expect(response.body).toEqual({ started: 1, failed: [], remaining: 0 });
     expect(mockExecutionsCreate).toHaveBeenCalledWith(expect.objectContaining({ to: '+13142107659' }));
     const upserts = mockCallAppsScript.mock.calls.filter((c) => c[1] === 'upsert_contact');
-    expect(upserts.map((c) => c[2].phone)).toEqual([stored, stored]);
+    expect(upserts.map((c) => c[2].phone)).toEqual([stored]);
   });
 
   it('reports why a contact failed, not just which one', async () => {

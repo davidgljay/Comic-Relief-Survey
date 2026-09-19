@@ -12,10 +12,7 @@ describe('studio-flow.json', () => {
     // {{trigger.parameters.*}} directly: starting an execution with `from`
     // set to a Messaging Service SID (required so Twilio correctly routes a
     // reply back to the active execution) breaks {{trigger.parameters.*}}
-    // from resolving at all — confirmed live. trigger-send.js writes the
-    // fresh respondent_id to the Contacts sheet before starting the
-    // execution, so Lookup_Contact reading it back here always gets the
-    // right value for the REST path too.
+    // from resolving at all — confirmed live.
     const trigger = flow.states.find((s) => s.name === flow.initial_state);
     for (const eventName of ['incomingRequest', 'incomingMessage']) {
       const event = trigger.transitions.find((t) => t.event === eventName);
