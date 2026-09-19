@@ -30,7 +30,7 @@ beforeEach(() => {
   mockSaveResponseHandler.mockReset();
   mockNextMessage.mockReset();
 
-  mockResolveContactContext.mockResolvedValue({ event: 'test', name: 'Ada', respondentId: 'uuid-1' });
+  mockResolveContactContext.mockResolvedValue({ phone: '+15551112222', event: 'test', name: 'Ada', respondentId: 'uuid-1' });
   mockSaveResponseHandler.mockImplementation((ctx, params, callback) => {
     callback(null, { statusCode: 200, body: { ok: true } });
   });

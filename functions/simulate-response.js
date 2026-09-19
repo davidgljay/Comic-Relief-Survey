@@ -52,7 +52,7 @@ exports.handler = async function (context, event, callback) {
 
   const saveParams = {
     respondent_id: contact.respondentId,
-    phone: number,
+    phone: contact.phone,
     event: contact.event,
     [`q${question}`]: answer,
   };

@@ -103,8 +103,15 @@ function callHandler(handler, params, context = {}) {
   });
 }
 
-const SIM_CONTACT = { phone: '+15550001234', name: 'Ada', consent: 'true' };
+// Stored the way a number pasted in from a phone's contacts app ends up: with
+// invisible Unicode direction marks around the digits. Twilio strips these, so
+// the flow sees a clean number that no longer string-matches the sheet.
+const SIM_CONTACT = { phone: '+1\u202D5550001234\u202C', name: 'Ada', consent: 'true' };
 const SIM_FROM = { messagingServiceSid: 'MG00000000000000000000000000000000', phoneNumber: '+15559998888' };
+
+function cleanedByTwilio(phone) {
+  return `+${phone.replace(/\D/g, '')}`;
+}
 
 // Runs the real trigger-send.js against a fake Twilio client that records the
 // execution it "starts" instead of sending anything.
@@ -132,7 +139,7 @@ async function runTriggerSend(eventName) {
                       "Lookup_Contact would read a stale value in production"
                   );
                 }
-                executions.push(args);
+                executions.push({ ...args, to: cleanedByTwilio(args.to) });
                 return {};
               },
             },

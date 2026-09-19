@@ -237,8 +237,8 @@ be sent next, as plain text (the next question, or the closing message after
 question 5). Call it again for the same `number` with `question=2`, etc., to walk
 through a full simulated conversation, checking both the returned "next step" text
 and the Sheets after each call. Like the text-in path, if `number` isn't already a
-known contact its `event` gets resolved to `"unknown"` (see §6) — same `Code.gs`
-`get_contact` requirement applies.
+known contact its `event` gets resolved to `"unknown"` (see §6), and phone numbers are
+matched the same forgiving way (see §6).
 
 Gated by the same `TRIGGER_SEND_SECRET` as `/trigger-send` — it can write real rows
 into both Sheets, so don't leave the URL somewhere it could be hit by anyone else.
@@ -287,11 +287,16 @@ into both Sheets, so don't leave the URL somewhere it could be hit by anyone els
   - If the lookup itself fails for any reason, it degrades to the "unknown" case
     rather than blocking the conversation.
 
-  **This requires `Code.gs`'s `get_contact` action** — if you deployed `Code.gs`
-  before this feature existed, redeploy it (§3: paste in the current
-  `apps-script/Code.gs`, then cut a new deployment version) or every text-in start
-  will fall back to "unknown" even for genuinely registered contacts, since the
-  lookup itself will error.
+  **Phone numbers are matched by digits only, not as exact text.** A number typed or
+  pasted into the sheet by hand often differs from what Twilio reports for the same
+  contact — invisible Unicode direction marks copied from a phone's contacts app, a
+  dropped leading `+` (Sheets turns a numeric-looking cell into a number), spaces or
+  dashes — and an exact match would then call a registered contact "unknown" and save
+  their answers on a brand-new row. The lookup reads the Contacts sheet (the existing
+  `list_rows` action — no special `Code.gs` support needed), finds the row by digits,
+  and the flow saves under that row's own stored phone string so the answers land on
+  the original row. (The country code still has to be there: `+1 555…` matches
+  `15555…`, but a bare 10-digit `555…` does not.)
 
   **Decide before a number goes live for a real campaign** whether to leave
   text-in-starts on at all (harmless either way — unregistered numbers just produce

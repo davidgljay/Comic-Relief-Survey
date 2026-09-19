@@ -30,12 +30,23 @@ describe('POST /resolve-trigger-context', () => {
   });
 
   it('returns the resolved event/name/respondent_id as snake_case JSON for Liquid to read', async () => {
-    mockResolveContactContext.mockResolvedValue({ event: 'fall-gala', name: 'Ada', respondentId: 'uuid-1' });
+    mockResolveContactContext.mockResolvedValue({
+      phone: '+1\u202D5551112222\u202C',
+      event: 'fall-gala',
+      name: 'Ada',
+      respondentId: 'uuid-1',
+    });
 
     const response = await invoke({ phone: '+15551112222' });
 
     expect(response.statusCode).toBe(200);
-    expect(response.body).toEqual({ event: 'fall-gala', name: 'Ada', respondent_id: 'uuid-1' });
+    // `phone` is the sheet's own stored string, which the flow saves under.
+    expect(response.body).toEqual({
+      phone: '+1\u202D5551112222\u202C',
+      event: 'fall-gala',
+      name: 'Ada',
+      respondent_id: 'uuid-1',
+    });
   });
 
   it('degrades gracefully to "unknown" if the lookup itself fails, never blocking the conversation', async () => {

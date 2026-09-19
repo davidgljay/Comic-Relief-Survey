@@ -21,16 +21,16 @@ exports.handler = async function (context, event, callback) {
   }
 
   try {
-    const { event: resolvedEvent, name, respondentId } = await resolveContactContext(context, phone);
+    const { phone: storedPhone, event: resolvedEvent, name, respondentId } = await resolveContactContext(context, phone);
     response.setStatusCode(200);
-    response.setBody({ event: resolvedEvent, name, respondent_id: respondentId });
+    response.setBody({ phone: storedPhone, event: resolvedEvent, name, respondent_id: respondentId });
   } catch (err) {
     // Graceful degradation, matching the rest of this flow: never block the
     // conversation on this lookup failing. Same defaults resolveContactContext
     // would use for a genuinely unknown number.
     console.error(err);
     response.setStatusCode(200);
-    response.setBody({ event: 'unknown', name: 'there', respondent_id: require('crypto').randomUUID() });
+    response.setBody({ phone, event: 'unknown', name: 'there', respondent_id: require('crypto').randomUUID() });
   }
   return callback(null, response);
 };

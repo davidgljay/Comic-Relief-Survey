@@ -97,7 +97,7 @@
           },
           {
             "key": "phone",
-            "value": "{{trigger.parameters.phone | default: contact.channel.address}}"
+            "value": "{{widgets.Lookup_Contact.parsed.phone | default: contact.channel.address}}"
           },
           {
             "key": "event",
@@ -157,7 +157,7 @@
           },
           {
             "key": "phone",
-            "value": "{{trigger.parameters.phone | default: contact.channel.address}}"
+            "value": "{{widgets.Lookup_Contact.parsed.phone | default: contact.channel.address}}"
           },
           {
             "key": "event",
@@ -217,7 +217,7 @@
           },
           {
             "key": "phone",
-            "value": "{{trigger.parameters.phone | default: contact.channel.address}}"
+            "value": "{{widgets.Lookup_Contact.parsed.phone | default: contact.channel.address}}"
           },
           {
             "key": "event",
@@ -308,7 +308,7 @@
           },
           {
             "key": "phone",
-            "value": "{{trigger.parameters.phone | default: contact.channel.address}}"
+            "value": "{{widgets.Lookup_Contact.parsed.phone | default: contact.channel.address}}"
           },
           {
             "key": "event",
@@ -368,7 +368,7 @@
           },
           {
             "key": "phone",
-            "value": "{{trigger.parameters.phone | default: contact.channel.address}}"
+            "value": "{{widgets.Lookup_Contact.parsed.phone | default: contact.channel.address}}"
           },
           {
             "key": "event",
@@ -409,7 +409,7 @@
           },
           {
             "key": "phone",
-            "value": "{{trigger.parameters.phone | default: contact.channel.address}}"
+            "value": "{{widgets.Lookup_Contact.parsed.phone | default: contact.channel.address}}"
           },
           {
             "key": "event",

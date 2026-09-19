@@ -160,7 +160,9 @@ const baseParams = () => [
     key: 'respondent_id',
     value: '{{trigger.parameters.respondent_id | default: widgets.Lookup_Contact.parsed.respondent_id}}',
   },
-  { key: 'phone', value: '{{trigger.parameters.phone | default: contact.channel.address}}' },
+  // The Contacts row's own stored phone, as found by Lookup_Contact — saves must use
+  // that exact string to land on the original row, not Studio's cleaned-up number.
+  { key: 'phone', value: '{{widgets.Lookup_Contact.parsed.phone | default: contact.channel.address}}' },
   { key: 'event', value: '{{trigger.parameters.event | default: widgets.Lookup_Contact.parsed.event}}' },
 ];
 

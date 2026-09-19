@@ -10,19 +10,29 @@
 async function resolveContactContext(context, phone) {
   const { callAppsScript } = require(Runtime.getFunctions()['lib/apps-script-client'].path);
 
-  let contact;
+  // Matched by digits only, in the Function rather than in Apps Script's exact
+  // string comparison: a phone typed or pasted into the sheet by hand often
+  // differs from what Twilio reports for the same number (invisible Unicode
+  // direction marks from a contacts app, a dropped leading "+", spaces or
+  // dashes), and an exact match then reports "unknown" and the answers land on
+  // a brand-new row. The row's own stored phone is returned as `phone` so the
+  // caller can save under that exact string and hit the original row.
+  let contact = { found: false };
   try {
-    contact = await callAppsScript(context, 'get_contact', { phone });
+    const { rows } = await callAppsScript(context, 'list_rows', {});
+    const wanted = digitsOf(phone);
+    const matches = wanted ? rows.filter((r) => digitsOf(r.values.phone) === wanted) : [];
+    const row = matches.find((r) => r.values.respondent_id) || matches[0];
+    if (row) contact = { found: true, ...row.values };
   } catch (err) {
-    // Apps Script errors (e.g. a deployment that predates the get_contact
-    // action) must never block a caller — fall through to the same
+    // Apps Script errors must never block a caller — fall through to the same
     // genuinely-unknown-number defaults below.
     console.error(err);
-    contact = { found: false };
   }
 
   if (contact.found) {
     return {
+      phone: contact.phone,
       event: contact.event || 'unknown',
       name: contact.name || 'there',
       respondentId: contact.respondent_id || unknownRespondentId(phone),
@@ -37,7 +47,11 @@ async function resolveContactContext(context, phone) {
   // calls for Q1, Q2, Q3..., which each resolve contact context independently
   // with no Studio execution state tying them together — land on the same
   // Anonymous-sheet row instead of a new one every time.
-  return { event: 'unknown', name: 'there', respondentId: unknownRespondentId(phone) };
+  return { phone, event: 'unknown', name: 'there', respondentId: unknownRespondentId(phone) };
+}
+
+function digitsOf(value) {
+  return String(value === undefined || value === null ? '' : value).replace(/\D/g, '');
 }
 
 function unknownRespondentId(phone) {

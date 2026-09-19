@@ -73,8 +73,19 @@ describe('scripts/simulate-survey.js', () => {
       expect(out).toContain('Hi Ada!');
 
       const [contactsRow] = sheetJson(out, '=== Would write to the Contacts & Results sheet ===');
-      expect(contactsRow).toMatchObject({ phone: '+15550001234', event: 'Gala', q1: '3', q5: 'Loved it' });
+      expect(contactsRow).toMatchObject({ event: 'Gala', q1: '3', q5: 'Loved it' });
       expect(contactsRow.sent_at).toEqual(expect.any(String));
+    });
+
+    it('saves on the original contact\'s row even though its stored phone has invisible characters', () => {
+      // Twilio reports the cleaned number, but the sheet holds the number as
+      // pasted in (with Unicode direction marks): exactly one Contacts row
+      // must exist, carrying both the original phone string and the answers.
+      const contactsRows = sheetJson(output(), '=== Would write to the Contacts & Results sheet ===');
+
+      expect(contactsRows).toHaveLength(1);
+      expect(contactsRows[0].phone).toBe('+1\u202D5550001234\u202C');
+      expect(contactsRows[0]).toMatchObject({ event: 'Gala', q1: '3', q5: 'Loved it' });
     });
 
     it('writes the same respondent_id to both sheets, and none of it is blank', () => {
