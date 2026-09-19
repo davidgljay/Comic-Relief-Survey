@@ -95,6 +95,26 @@ const ENV_VARS = [
       'number isn\'t in a Messaging Service.',
     optional: true,
     validate: (v) => (/^MG[0-9a-f]{32}$/i.test(v) ? null : 'must start with "MG" followed by 32 hex characters'),
+    // Checks whether TWILIO_PHONE_NUMBER is already a sender on any
+    // Messaging Service, so the answer is pre-filled (accept with Enter)
+    // instead of making whoever runs this dig the SID out of the console
+    // themselves. Requires ACCOUNT_SID/AUTH_TOKEN/TWILIO_PHONE_NUMBER to
+    // already be resolved in `values` — true here since this is the last
+    // entry in ENV_VARS.
+    detect: async (values) => {
+      if (!values.ACCOUNT_SID || !values.AUTH_TOKEN || !values.TWILIO_PHONE_NUMBER) return null;
+      const twilio = require('twilio');
+      const client = twilio(values.ACCOUNT_SID, values.AUTH_TOKEN);
+      const services = await client.messaging.v1.services.list({ limit: 50 });
+      for (const service of services) {
+        // eslint-disable-next-line no-await-in-loop
+        const senders = await client.messaging.v1.services(service.sid).phoneNumbers.list({ limit: 50 });
+        if (senders.some((s) => s.phoneNumber === values.TWILIO_PHONE_NUMBER)) {
+          return service.sid;
+        }
+      }
+      return null;
+    },
   },
 ];
 
@@ -115,8 +135,22 @@ async function promptEnvVars(rl) {
       continue;
     }
 
-    const currentNote = existing[def.key]
-      ? ` [current: ${def.secret ? '••••••' : existing[def.key]}]`
+    let defaultValue = existing[def.key];
+    let defaultLabel = 'current';
+    if (!defaultValue && def.detect) {
+      try {
+        const detected = await def.detect(values);
+        if (detected) {
+          defaultValue = detected;
+          defaultLabel = 'detected';
+        }
+      } catch (err) {
+        console.log(`  (couldn't auto-detect ${def.key}: ${err.message} — enter manually or leave blank)`);
+      }
+    }
+
+    const currentNote = defaultValue
+      ? ` [${defaultLabel}: ${def.secret ? '••••••' : defaultValue}]`
       : def.optional
         ? ' [optional]'
         : '';
@@ -130,7 +164,7 @@ async function promptEnvVars(rl) {
       // eslint-disable-next-line no-await-in-loop
       answer = await rl.question('> ');
       const candidate = def.parse && answer.trim() ? def.parse(answer) : answer;
-      resolved = resolveValue(def, existing[def.key], candidate);
+      resolved = resolveValue(def, defaultValue, candidate);
       const problem = resolved && def.validate ? def.validate(resolved) : null;
       if (!problem) break;
       console.log(`  Doesn't look right: ${problem}. Try again${def.optional ? ' (or leave blank to skip)' : ''}.`);

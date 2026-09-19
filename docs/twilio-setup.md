@@ -96,9 +96,11 @@ cut a new deployment version (§3 step 12), then re-run `npm run deploy --skip-e
      looks completely correct. Symptom if this is missing: the outbound question
      sends fine, but a reply spins up a brand-new, unrelated execution (tagged
      `event="unknown"`) instead of continuing the survey, since Twilio never routes
-     the reply into the flow's already-active execution. Check Console > Messaging >
-     Services to see if your number is listed as a sender under any service; if so,
-     copy that service's SID into `.env`'s `MESSAGING_SERVICE_SID`.
+     the reply into the flow's already-active execution. `npm run deploy`'s `.env`
+     prompt auto-detects this: it checks whether `TWILIO_PHONE_NUMBER` is already a
+     sender on any Messaging Service and pre-fills the SID (accept with Enter) if so
+     — you shouldn't normally need to go find it in the console yourself. Leave it
+     blank if your number isn't in a Messaging Service.
    - Offers to watch the Contacts sheet for the row a live test text produces (see
      §7).
    - Re-run any time with `npm run deploy` — it's idempotent (updates the existing
