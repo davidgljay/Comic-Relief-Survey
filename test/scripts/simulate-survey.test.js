@@ -4,8 +4,8 @@ const { execFileSync } = require('child_process');
 const ROOT = path.join(__dirname, '..', '..');
 const SCRIPT = path.join(ROOT, 'scripts', 'simulate-survey.js');
 
-function run(replies) {
-  return execFileSync('node', [SCRIPT, '--replies', replies], { cwd: ROOT, encoding: 'utf8' });
+function run(replies, extraArgs = []) {
+  return execFileSync('node', [SCRIPT, ...extraArgs, '--replies', replies], { cwd: ROOT, encoding: 'utf8' });
 }
 
 function sheetJson(output, heading) {
@@ -59,5 +59,32 @@ describe('scripts/simulate-survey.js', () => {
 
   it('errors clearly when it runs out of scripted replies', () => {
     expect(() => run('3')).toThrow();
+  });
+
+  describe('--from-trigger-send', () => {
+    const output = () => run('3,4,1,2,Loved it', ['--from-trigger-send', '--event', 'Gala']);
+
+    it('starts the execution from the Messaging Service, as production does', () => {
+      expect(output()).toMatch(/started an execution: to \+15550001234, from MG/);
+    });
+
+    it('greets the contact by name and saves under their real event, despite empty trigger.parameters', () => {
+      const out = output();
+      expect(out).toContain('Hi Ada!');
+
+      const [contactsRow] = sheetJson(out, '=== Would write to the Contacts & Results sheet ===');
+      expect(contactsRow).toMatchObject({ phone: '+15550001234', event: 'Gala', q1: '3', q5: 'Loved it' });
+      expect(contactsRow.sent_at).toEqual(expect.any(String));
+    });
+
+    it('writes the same respondent_id to both sheets, and none of it is blank', () => {
+      const out = output();
+      const [contactsRow] = sheetJson(out, '=== Would write to the Contacts & Results sheet ===');
+      const [anonRow] = sheetJson(out, '=== Would write to the Anonymous Results sheet (no PII) ===');
+
+      expect(contactsRow.respondent_id).toBeTruthy();
+      expect(anonRow.respondent_id).toBe(contactsRow.respondent_id);
+      expect(anonRow).not.toHaveProperty('phone');
+    });
   });
 });

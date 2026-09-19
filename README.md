@@ -112,6 +112,7 @@ to push it.
 ```bash
 npm run simulate                                          # interactive — type each reply
 npm run simulate -- --replies "3,4,1,2,It was great"      # scripted (note the extra --)
+npm run simulate -- --from-trigger-send --replies "3,4,1,2,It was great"
 ```
 
 Runs a full conversation against the real `studio-flow.json` and the real
@@ -122,6 +123,16 @@ Useful for checking question order and the Q3→Q4 skip gate right after editing
 `survey-content.yaml` or `scripts/generate-studio-flow.js`, without a deploy. A
 scripted reply list only needs to cover what actually gets asked — if Q4 ends up
 skipped, any extra reply after Q3 is just unused.
+
+`--from-trigger-send` (optionally `--event <name>`, default `Gala`) starts the
+conversation the way production does instead of as a text-in: it seeds a registered
+contact, runs the real `functions/trigger-send.js` against a fake Twilio client, then
+walks the flow from the REST trigger. The fake execution hands the flow empty
+`{{trigger.parameters.*}}` on purpose (that's what Twilio does when an execution is
+started from a Messaging Service), so it proves the flow gets everything it needs
+from `Lookup_Contact` alone, and it fails loudly if `trigger-send.js` ever starts the
+execution before writing `respondent_id` to the Contacts sheet. It can't reproduce
+Twilio's own reply-routing behavior — that only happens on a real number.
 
 ## Testing it live
 

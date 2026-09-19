@@ -12,6 +12,20 @@
 //   node scripts/simulate-survey.js --replies "1,2,3,4,It was great"
 //   npm run simulate                                      interactive
 //   npm run simulate -- --replies "1,2,3,4,It was great"  scripted (note the extra --)
+//   npm run simulate -- --from-trigger-send [--event Gala] [--replies "..."]
+//
+// --from-trigger-send starts the conversation the way production does: a
+// registered, consenting contact is seeded into the in-memory Contacts sheet,
+// the real functions/trigger-send.js handler runs against a fake Twilio
+// client (so it "starts a Studio execution" without sending anything), and
+// the flow is then walked from the REST trigger (incomingRequest) instead of
+// the text-in trigger. The fake execution deliberately hands the flow EMPTY
+// {{trigger.parameters.*}}, mimicking what Twilio does when an execution is
+// started with a Messaging Service SID as `from` (see trigger-send.js) — so
+// this proves the flow gets respondent_id/event/name from Lookup_Contact
+// alone. It also fails loudly if trigger-send.js ever starts the execution
+// before writing respondent_id to the Contacts sheet, which would let
+// Lookup_Contact read a stale value in production.
 //
 // A scripted reply list only needs to cover what actually gets asked — once
 // Q4 is skipped (or the flow ends), remaining replies are simply unused.
@@ -56,8 +70,19 @@ require.cache[appsScriptClientPath] = {
           ? { found: true, event: existing.event || '', name: existing.name || '', respondent_id: existing.respondent_id || '' }
           : { found: false };
       }
+      if (action === 'list_rows') {
+        const rows = [...contactsSheet.values()].map((values, i) => ({
+          rowNumber: i + 2,
+          values: Object.fromEntries(Object.entries(values).map(([k, v]) => [k, String(v)])),
+        }));
+        return { header: [], rows };
+      }
+      if (action === 'upsert_contact') {
+        upsert(contactsSheet, params.phone, paramsToRow_(params));
+        return { ok: true };
+      }
       if (action !== 'save_response') {
-        throw new Error(`simulate-survey.js only expects "save_response" or "get_contact", got "${action}"`);
+        throw new Error(`simulate-survey.js doesn't simulate the Apps Script action "${action}"`);
       }
       upsert(contactsSheet, params.phone, paramsToRow_(params));
       upsert(anonymousSheet, params.respondent_id, paramsToRow_(params, ANONYMOUS_EXCLUDE));
@@ -70,11 +95,59 @@ require.cache[appsScriptClientPath] = {
 // apps-script-client.private.js — already stubbed above).
 const { handler: saveResponseHandler } = require(path.join(ROOT, 'functions', 'save-response.js'));
 const { handler: lookupContactHandler } = require(path.join(ROOT, 'functions', 'resolve-trigger-context.js'));
+const { handler: triggerSendHandler } = require(path.join(ROOT, 'functions', 'trigger-send.js'));
 
-function callHandler(handler, params) {
+function callHandler(handler, params, context = {}) {
   return new Promise((resolve, reject) => {
-    handler({}, params, (err, response) => (err ? reject(err) : resolve(response)));
+    handler(context, params, (err, response) => (err ? reject(err) : resolve(response)));
   });
+}
+
+const SIM_CONTACT = { phone: '+15550001234', name: 'Ada', consent: 'true' };
+const SIM_FROM = { messagingServiceSid: 'MG00000000000000000000000000000000', phoneNumber: '+15559998888' };
+
+// Runs the real trigger-send.js against a fake Twilio client that records the
+// execution it "starts" instead of sending anything.
+async function runTriggerSend(eventName) {
+  upsert(contactsSheet, SIM_CONTACT.phone, { ...SIM_CONTACT, event: eventName });
+
+  const executions = [];
+  const context = {
+    TRIGGER_SEND_SECRET: 'sim',
+    STUDIO_FLOW_SID: 'FW00000000000000000000000000000000',
+    TWILIO_PHONE_NUMBER: SIM_FROM.phoneNumber,
+    MESSAGING_SERVICE_SID: SIM_FROM.messagingServiceSid,
+    getTwilioClient: () => ({
+      studio: {
+        v2: {
+          flows: () => ({
+            executions: {
+              async create(args) {
+                // In production, Studio's Lookup_Contact reads this row as
+                // soon as the execution starts — so respondent_id has to be
+                // there already.
+                if (!contactsSheet.get(args.to)?.respondent_id) {
+                  throw new Error(
+                    'trigger-send.js started the execution before writing respondent_id to the Contacts sheet — ' +
+                      "Lookup_Contact would read a stale value in production"
+                  );
+                }
+                executions.push(args);
+                return {};
+              },
+            },
+          }),
+        },
+      },
+    }),
+  };
+
+  const response = await callHandler(triggerSendHandler, { secret: 'sim', event: eventName }, context);
+  if (response.statusCode !== 200 || response.body.started !== 1) {
+    throw new Error(`trigger-send.js did not start exactly one execution: ${JSON.stringify(response.body)}`);
+  }
+  console.log(`trigger-send.js started an execution: to ${executions[0].to}, from ${executions[0].from}`);
+  return executions[0];
 }
 
 // make-http-request widgets in studio-flow.json target different endpoints
@@ -130,20 +203,38 @@ async function main() {
     return reply;
   }
 
-  // Mirrors the text-in path (see studio-flow.json's Trigger widget): no REST
-  // parameters, so name/respondent_id/event fall back to message-derived values.
-  const ctx = {
-    trigger: {
-      parameters: {},
-      message: { MessageSid: 'SMsimulated00000000000000000000000', From: '+15550001234' },
-    },
-    contact: { channel: { address: '+15550001234' } },
-    flow: { channel: { address: '+15559998888' } },
-    widgets: {},
-  };
+  const fromTriggerSend = args.includes('--from-trigger-send');
+  const eventFlagIndex = args.indexOf('--event');
+  const eventName = eventFlagIndex !== -1 ? args[eventFlagIndex + 1] : 'Gala';
+
+  let ctx;
+  let startEvent;
+  if (fromTriggerSend) {
+    const execution = await runTriggerSend(eventName);
+    // Empty on purpose: see the header comment above.
+    ctx = {
+      trigger: { parameters: {} },
+      contact: { channel: { address: execution.to } },
+      flow: { channel: { address: execution.from } },
+      widgets: {},
+    };
+    startEvent = 'incomingRequest';
+  } else {
+    // Mirrors the text-in path (see studio-flow.json's Trigger widget).
+    ctx = {
+      trigger: {
+        parameters: {},
+        message: { MessageSid: 'SMsimulated00000000000000000000000', From: '+15550001234' },
+      },
+      contact: { channel: { address: '+15550001234' } },
+      flow: { channel: { address: '+15559998888' } },
+      widgets: {},
+    };
+    startEvent = 'incomingMessage';
+  }
 
   let current = statesByName[flow.initial_state];
-  current = statesByName[current.transitions.find((t) => t.event === 'incomingMessage').next];
+  current = statesByName[current.transitions.find((t) => t.event === startEvent).next];
 
   while (current) {
     if (current.transitions.length === 0) {
