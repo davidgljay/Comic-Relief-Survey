@@ -153,6 +153,32 @@ describe('POST /trigger-send', () => {
     expect(mockCallAppsScript).not.toHaveBeenCalled();
   });
 
+  it('sends Twilio a cleaned +digits number but keys the sheet writes on the stored string', async () => {
+    const stored = '+1\u202D3142107659\u202C'; // invisible direction marks, pasted from a contacts app
+    mockCallAppsScript.mockResolvedValueOnce({
+      rows: [{ values: { phone: stored, event: 'Gala', consent: 'true', sent_at: '' } }],
+    });
+
+    const response = await invoke(makeContext(), { secret: 'shh', event: 'Gala' });
+
+    expect(response.body).toEqual({ started: 1, failed: [], remaining: 0 });
+    expect(mockExecutionsCreate).toHaveBeenCalledWith(expect.objectContaining({ to: '+13142107659' }));
+    const upserts = mockCallAppsScript.mock.calls.filter((c) => c[1] === 'upsert_contact');
+    expect(upserts.map((c) => c[2].phone)).toEqual([stored, stored]);
+  });
+
+  it('reports why a contact failed, not just which one', async () => {
+    mockCallAppsScript.mockResolvedValueOnce({
+      rows: [{ values: { phone: '+1', event: 'Gala', consent: 'true', sent_at: '' } }],
+    });
+    mockExecutionsCreate.mockRejectedValueOnce(new Error("The 'To' number +1 is not a valid phone number"));
+
+    const response = await invoke(makeContext(), { secret: 'shh', event: 'Gala' });
+
+    expect(response.body.failed).toEqual(['+1']);
+    expect(response.body.errors).toEqual([{ phone: '+1', error: "The 'To' number +1 is not a valid phone number" }]);
+  });
+
   it('does not mark a contact sent if starting their execution fails', async () => {
     mockCallAppsScript.mockResolvedValueOnce({
       rows: [{ values: { phone: '+1', event: 'Gala', consent: 'true', sent_at: '' } }],

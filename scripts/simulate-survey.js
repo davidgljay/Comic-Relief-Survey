@@ -133,7 +133,9 @@ async function runTriggerSend(eventName) {
                 // In production, Studio's Lookup_Contact reads this row as
                 // soon as the execution starts — so respondent_id has to be
                 // there already.
-                if (!contactsSheet.get(args.to)?.respondent_id) {
+                const digits = (p) => String(p).replace(/\D/g, '');
+                const storedRow = [...contactsSheet.values()].find((row) => digits(row.phone) === digits(args.to));
+                if (!storedRow?.respondent_id) {
                   throw new Error(
                     'trigger-send.js started the execution before writing respondent_id to the Contacts sheet — ' +
                       "Lookup_Contact would read a stale value in production"

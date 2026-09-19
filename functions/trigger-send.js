@@ -14,6 +14,15 @@ const crypto = require('crypto');
 
 const BATCH_SIZE = 10;
 
+// What Twilio should be given as the recipient: "+" and digits only. A phone
+// typed or pasted into the sheet by hand can carry invisible Unicode direction
+// marks (copied from a contacts app), spaces or dashes, which Twilio rejects
+// as an invalid number. The sheet's own string is still what the sheet writes
+// key on, so the row is found again exactly as stored.
+function toE164(phone) {
+  return `+${String(phone).replace(/\D/g, '')}`;
+}
+
 exports.handler = async function (context, event, callback) {
   // Required inside the handler, not at module top level — see the comment
   // in functions/save-response.js for why a plain relative require breaks
@@ -66,6 +75,7 @@ exports.handler = async function (context, event, callback) {
   const batch = pending.slice(0, limit);
   const client = context.getTwilioClient();
   const results = { started: 0, failed: [], remaining: pending.length - batch.length };
+  const errors = [];
 
   const startOne = async (row) => {
     const respondentId = crypto.randomUUID();
@@ -85,7 +95,7 @@ exports.handler = async function (context, event, callback) {
       await client.studio.v2
         .flows(context.STUDIO_FLOW_SID)
         .executions.create({
-          to: row.values.phone,
+          to: toE164(row.values.phone),
           // If the number is in a Messaging Service, its inbound routing is
           // delegated there (see attachFlowToMessagingService in
           // scripts/deploy.js), which scopes the reply to the Messaging
@@ -120,6 +130,7 @@ exports.handler = async function (context, event, callback) {
     } catch (err) {
       console.error(err);
       results.failed.push(row.values.phone);
+      errors.push({ phone: row.values.phone, error: String((err && err.message) || err) });
     }
   };
 
@@ -132,6 +143,10 @@ exports.handler = async function (context, event, callback) {
     // eslint-disable-next-line no-await-in-loop
     await Promise.all(batch.slice(i, i + BATCH_SIZE).map(startOne));
   }
+
+  // Only present when something failed, so a failure is diagnosable from the
+  // response itself (this endpoint is secret-gated) instead of needing logs.
+  if (errors.length > 0) results.errors = errors;
 
   response.setStatusCode(200);
   response.setBody(results);
