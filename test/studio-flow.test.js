@@ -7,18 +7,21 @@ describe('studio-flow.json', () => {
     expect(errors).toEqual([]);
   });
 
-  it('starts at a trigger state that fires on incomingRequest (REST-started executions)', () => {
+  it('routes both incomingRequest (REST-started) and incomingMessage (text-in) through Lookup_Contact', () => {
+    // Both paths go through this HTTP lookup rather than trusting
+    // {{trigger.parameters.*}} directly: starting an execution with `from`
+    // set to a Messaging Service SID (required so Twilio correctly routes a
+    // reply back to the active execution) breaks {{trigger.parameters.*}}
+    // from resolving at all — confirmed live. trigger-send.js writes the
+    // fresh respondent_id to the Contacts sheet before starting the
+    // execution, so Lookup_Contact reading it back here always gets the
+    // right value for the REST path too.
     const trigger = flow.states.find((s) => s.name === flow.initial_state);
-    const event = trigger.transitions.find((t) => t.event === 'incomingRequest');
-    expect(event).toBeDefined();
-    expect(event.next).toBe('Q1_Send');
-  });
-
-  it('also starts on incomingMessage, routed through Lookup_Contact first', () => {
-    const trigger = flow.states.find((s) => s.name === flow.initial_state);
-    const event = trigger.transitions.find((t) => t.event === 'incomingMessage');
-    expect(event).toBeDefined();
-    expect(event.next).toBe('Lookup_Contact');
+    for (const eventName of ['incomingRequest', 'incomingMessage']) {
+      const event = trigger.transitions.find((t) => t.event === eventName);
+      expect(event).toBeDefined();
+      expect(event.next).toBe('Lookup_Contact');
+    }
 
     const lookup = flow.states.find((s) => s.name === 'Lookup_Contact');
     expect(lookup.type).toBe('make-http-request');
@@ -27,11 +30,11 @@ describe('studio-flow.json', () => {
     expect(lookup.transitions.find((t) => t.event === 'failed').next).toBe('Q1_Send');
   });
 
-  it('falls back to the Lookup_Contact widget\'s resolved values when trigger.parameters is empty (the text-in path)', () => {
+  it('falls back to the Lookup_Contact widget\'s resolved values when trigger.parameters is empty', () => {
     const q1Save = flow.states.find((s) => s.name === 'Q1_Save');
     const params = Object.fromEntries(q1Save.properties.parameters.map((p) => [p.key, p.value]));
     expect(params.respondent_id).toContain('widgets.Lookup_Contact.parsed.respondent_id');
-    expect(params.phone).toContain('trigger.message.From');
+    expect(params.phone).toContain('contact.channel.address');
     expect(params.event).toContain('widgets.Lookup_Contact.parsed.event');
   });
 

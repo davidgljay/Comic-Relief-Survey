@@ -7,7 +7,7 @@
       "transitions": [
         {
           "event": "incomingRequest",
-          "next": "Q1_Send"
+          "next": "Lookup_Contact"
         },
         {
           "event": "incomingMessage",
@@ -45,7 +45,7 @@
         "parameters": [
           {
             "key": "phone",
-            "value": "{{trigger.message.From}}"
+            "value": "{{contact.channel.address}}"
           }
         ]
       }
@@ -97,7 +97,7 @@
           },
           {
             "key": "phone",
-            "value": "{{trigger.parameters.phone | default: trigger.message.From}}"
+            "value": "{{trigger.parameters.phone | default: contact.channel.address}}"
           },
           {
             "key": "event",
@@ -157,7 +157,7 @@
           },
           {
             "key": "phone",
-            "value": "{{trigger.parameters.phone | default: trigger.message.From}}"
+            "value": "{{trigger.parameters.phone | default: contact.channel.address}}"
           },
           {
             "key": "event",
@@ -217,7 +217,7 @@
           },
           {
             "key": "phone",
-            "value": "{{trigger.parameters.phone | default: trigger.message.From}}"
+            "value": "{{trigger.parameters.phone | default: contact.channel.address}}"
           },
           {
             "key": "event",
@@ -308,7 +308,7 @@
           },
           {
             "key": "phone",
-            "value": "{{trigger.parameters.phone | default: trigger.message.From}}"
+            "value": "{{trigger.parameters.phone | default: contact.channel.address}}"
           },
           {
             "key": "event",
@@ -368,7 +368,7 @@
           },
           {
             "key": "phone",
-            "value": "{{trigger.parameters.phone | default: trigger.message.From}}"
+            "value": "{{trigger.parameters.phone | default: contact.channel.address}}"
           },
           {
             "key": "event",
@@ -409,7 +409,7 @@
           },
           {
             "key": "phone",
-            "value": "{{trigger.parameters.phone | default: trigger.message.From}}"
+            "value": "{{trigger.parameters.phone | default: contact.channel.address}}"
           },
           {
             "key": "event",

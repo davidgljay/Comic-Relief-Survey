@@ -49,19 +49,37 @@ exports.handler = async function (context, event, callback) {
   for (const row of pending) {
     const respondentId = crypto.randomUUID();
     try {
+      // Written *before* starting the execution, not after: the flow's
+      // Lookup_Contact widget (see scripts/generate-studio-flow.js) reads
+      // this contact's row right at the start of every execution, REST-
+      // triggered ones included — {{trigger.parameters.*}} isn't reliable
+      // here (see the `from` comment below), so this is the real source of
+      // truth for respondent_id/event. Writing it first means Lookup_Contact
+      // can never race ahead of it and read a stale/missing value.
+      await callAppsScript(context, 'upsert_contact', {
+        phone: row.values.phone,
+        respondent_id: respondentId,
+      });
+
       await client.studio.v2
         .flows(context.STUDIO_FLOW_SID)
         .executions.create({
           to: row.values.phone,
-          // Tried using MESSAGING_SERVICE_SID here to align channel identity
-          // with attachFlowToMessagingService's inbound routing (see git
-          // history) — confirmed live that it broke trigger.parameters from
-          // resolving at all (a blank {{trigger.parameters.name}} in the
-          // greeting, and save-response rejecting every call as missing
-          // respondent_id/phone/event), while the Messaging Service's inbound
-          // webhook attach alone was already sufficient to fix reply routing.
-          // Back to the bare phone number.
-          from: context.TWILIO_PHONE_NUMBER,
+          // If the number is in a Messaging Service, its inbound routing is
+          // delegated there (see attachFlowToMessagingService in
+          // scripts/deploy.js), which scopes the reply to the Messaging
+          // Service's own channel identity. Starting the execution with the
+          // bare phone number as `from` instead anchors it to a *different*
+          // channel identity, so Twilio can't correlate a reply back to this
+          // execution and starts a brand-new one per reply instead of
+          // continuing the conversation — confirmed live, twice now (this is
+          // the fix that actually stops the repeat-Q1/duplicate-execution
+          // bug). Confirmed separately live that this breaks
+          // {{trigger.parameters.*}} from resolving in the started execution
+          // — worked around above/below by having the flow read
+          // respondent_id/event/phone back via Lookup_Contact instead of
+          // trusting trigger.parameters, rather than by touching `from`.
+          from: context.MESSAGING_SERVICE_SID || context.TWILIO_PHONE_NUMBER,
           parameters: JSON.stringify({
             phone: row.values.phone,
             name: row.values.name,
@@ -69,9 +87,12 @@ exports.handler = async function (context, event, callback) {
             respondent_id: respondentId,
           }),
         });
+
+      // sent_at is only written now, after the execution actually started —
+      // if executions.create() above throws, this contact must NOT be marked
+      // sent, so a retry still picks it up instead of silently skipping it.
       await callAppsScript(context, 'upsert_contact', {
         phone: row.values.phone,
-        respondent_id: respondentId,
         sent_at: new Date().toISOString(),
       });
       results.started += 1;

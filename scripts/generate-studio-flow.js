@@ -113,31 +113,42 @@ function wire(name, event, next) {
 }
 
 // ---- Trigger ----
-// Two ways to start an execution:
+// Two ways to start an execution, both routed through Lookup_Contact:
 //  - incomingRequest: the real path. trigger-send.js starts one execution per
-//    consenting contact via the REST API, passing phone/name/event/respondent_id.
+//    consenting contact via the REST API. It writes that contact's fresh
+//    respondent_id to the Contacts sheet *before* starting the execution
+//    (see trigger-send.js), so Lookup_Contact reading it back here always
+//    gets the right value.
 //  - incomingMessage: anyone texting the number with no active execution —
 //    either a deliberate test, or a genuinely new/unregistered number
-//    reaching out first. Routed through Lookup_Contact before Q1, which
-//    looks the phone up in the Contacts sheet: if it's already a known
-//    contact (e.g. registered for a real event but texted in before ever
-//    being sent a survey), its real event/name/respondent_id are reused;
-//    otherwise it's tagged event="unknown" (never "test" — that stays
-//    reserved for deliberate manual testing) with a freshly minted
-//    respondent_id. See functions/resolve-trigger-context.js.
+//    reaching out first.
+// Both paths look the phone up in the Contacts sheet via Lookup_Contact: if
+// it's already a known contact, its real event/name/respondent_id are
+// reused; otherwise it's tagged event="unknown" (never "test" — that stays
+// reserved for deliberate manual testing) with a freshly minted
+// respondent_id. See functions/resolve-trigger-context.js.
+//
+// Both paths go through this HTTP lookup rather than trusting
+// {{trigger.parameters.*}} directly, because confirmed live: starting an
+// execution with `from` set to a Messaging Service SID (required to fix a
+// separate reply-routing bug — see trigger-send.js) breaks
+// {{trigger.parameters.*}} from resolving at all in that execution.
 states.push({
   name: 'Trigger',
   type: 'trigger',
   transitions: [
-    { event: 'incomingRequest', next: 'Q1_Send' },
+    { event: 'incomingRequest', next: 'Lookup_Contact' },
     { event: 'incomingMessage', next: 'Lookup_Contact' },
   ],
   properties: { offset: offset(0) },
 });
 
+// {{contact.channel.address}} is Studio's own reference to the current
+// execution's contact phone number — populated for both trigger types
+// (unlike {{trigger.message.From}}, which only exists for incomingMessage).
 httpSave(
   'Lookup_Contact',
-  [{ key: 'phone', value: '{{trigger.message.From}}' }],
+  [{ key: 'phone', value: '{{contact.channel.address}}' }],
   0,
   '/resolve-trigger-context'
 );
@@ -149,7 +160,7 @@ const baseParams = () => [
     key: 'respondent_id',
     value: '{{trigger.parameters.respondent_id | default: widgets.Lookup_Contact.parsed.respondent_id}}',
   },
-  { key: 'phone', value: '{{trigger.parameters.phone | default: trigger.message.From}}' },
+  { key: 'phone', value: '{{trigger.parameters.phone | default: contact.channel.address}}' },
   { key: 'event', value: '{{trigger.parameters.event | default: widgets.Lookup_Contact.parsed.event}}' },
 ];
 

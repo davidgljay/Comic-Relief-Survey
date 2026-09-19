@@ -87,21 +87,25 @@ cut a new deployment version (§3 step 12), then re-run `npm run deploy --skip-e
      this step, texting the number does nothing at all, and it's easy to miss since
      the deploy otherwise looks fully successful. Safe to re-run: it just re-sets the
      same webhook.
-   - If `MESSAGING_SERVICE_SID` is set in `.env`, also configures that Messaging
-     Service to defer inbound routing to the phone number's own webhook (previous
-     bullet), rather than the Service's own URL. **This matters if your number is
-     assigned to a Messaging Service** (common once A2P 10DLC registration is set up,
-     per §0): a Messaging Service's own Integration settings can silently override the
-     phone number's own webhook for inbound SMS, so without this, replies to a live
-     survey never reach the flow — even though the number-level webhook looks
-     completely correct. Symptom if this is missing: the outbound question sends fine,
-     but a reply spins up a brand-new, unrelated execution (tagged `event="unknown"`)
+   - If `MESSAGING_SERVICE_SID` is set in `.env`, also points that Messaging Service's
+     own inbound routing at the Studio Flow. **This matters if your number is assigned
+     to a Messaging Service** (common once A2P 10DLC registration is set up, per §0):
+     a Messaging Service's own Integration settings can silently override the phone
+     number's own webhook for inbound SMS, so without this, replies to a live survey
+     never reach the flow — even though the number-level webhook looks completely
+     correct. Symptom if this is missing: the outbound question sends fine, but a
+     reply spins up a brand-new, unrelated execution (tagged `event="unknown"`)
      instead of continuing the survey, since Twilio never routes the reply into the
-     flow's already-active execution. (An earlier attempt at this fix routed inbound
-     through the Service's own webhook instead and matched `trigger-send.js`'s `from`
-     to the Service SID — confirmed live that this breaks `trigger.parameters` from
-     resolving at all in REST-started executions, so deferring to the number's own
-     webhook is the one that's actually correct.) `npm run deploy`'s `.env` prompt
+     flow's already-active execution. This must match `trigger-send.js`'s
+     `from: MESSAGING_SERVICE_SID` — Twilio correlates a reply back to the active
+     execution by matching channel identity, so outbound and inbound both need to be
+     anchored to the Service, not the bare number (confirmed live, twice, that mixing
+     the two — bare-number `from` with Service-routed inbound, or vice versa —
+     reliably reintroduces the duplicate-execution bug). Using the Service SID as
+     `from` does break `{{trigger.parameters.*}}` from resolving in REST-started
+     executions — that's worked around at the flow level (both trigger paths route
+     through the `Lookup_Contact` widget, which reads the contact back from the
+     Contacts sheet instead), not by changing this setting. `npm run deploy`'s `.env` prompt
      auto-detects this: it checks whether `TWILIO_PHONE_NUMBER` is already a sender on
      any Messaging Service and pre-fills the SID (accept with Enter) if so — you
      shouldn't normally need to go find it in the console yourself. Leave it blank if
@@ -254,9 +258,13 @@ into both Sheets, so don't leave the URL somewhere it could be hit by anyone els
   should spot-check responses before that sheet is shared onward.
 - **Texting the number also starts the survey, and looks the number up first.** The
   flow's trigger fires on both a REST-started execution (the real `/trigger-send`
-  path) and a plain inbound text. For a text-in start, the flow calls
-  `/resolve-trigger-context` (Lookup_Contact widget) before Q1, which checks the
-  Contacts sheet for that phone:
+  path) and a plain inbound text — both are routed through the same
+  `/resolve-trigger-context` call (Lookup_Contact widget) before Q1. (The REST path
+  doesn't rely on the parameters passed at execution-creation time for this — confirmed
+  live that those don't reliably resolve once the number is in a Messaging Service —
+  so `trigger-send.js` writes the contact's `respondent_id` to the Contacts sheet
+  *before* starting the execution, and Lookup_Contact reads it back the same way it
+  would for a text-in.) Lookup_Contact checks the Contacts sheet for that phone:
   - **Already a known contact** (e.g. registered for a real event with consent, but
     texted in before ever being sent a survey) — reuses their real `event`, `name`,
     and `respondent_id`, so their answers land under their actual event, not a

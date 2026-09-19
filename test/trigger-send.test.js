@@ -82,20 +82,57 @@ describe('POST /trigger-send', () => {
     );
   });
 
-  it('always starts executions from the bare phone number, even when a Messaging Service is configured', async () => {
+  it('starts executions from the Messaging Service, not the bare number, when one is configured', async () => {
     mockCallAppsScript.mockResolvedValueOnce({
       rows: [{ values: { phone: '+1', event: 'Gala', consent: 'true', sent_at: '' } }],
     });
 
     await invoke(makeContext({ MESSAGING_SERVICE_SID: 'MGxxxx' }), { secret: 'shh', event: 'Gala' });
 
-    // Confirmed live: using the Messaging Service SID as `from` here broke
-    // trigger.parameters from resolving at all in the started execution
-    // (blank {{trigger.parameters.name}}, save-response rejecting every call
-    // as missing respondent_id/phone/event). The Messaging Service's own
-    // inbound webhook attach (scripts/deploy.js) is sufficient on its own to
-    // fix reply routing, so this stays on the bare number regardless.
-    expect(mockExecutionsCreate).toHaveBeenCalledWith(expect.objectContaining({ to: '+1', from: '+15550000000' }));
+    // Inbound routing for a number in a Messaging Service is delegated to the
+    // service (see attachFlowToMessagingService in scripts/deploy.js), which
+    // scopes replies to the service's channel identity — starting the
+    // execution with the bare number instead would anchor it to a different
+    // channel, breaking Twilio's "route this reply to the active execution"
+    // matching (confirmed live, twice). This does break
+    // {{trigger.parameters.*}} in the started execution — worked around at
+    // the flow level (Lookup_Contact) instead, not by changing `from`.
+    expect(mockExecutionsCreate).toHaveBeenCalledWith(expect.objectContaining({ to: '+1', from: 'MGxxxx' }));
+  });
+
+  it('writes respondent_id to the Contacts sheet before starting the execution, not after', async () => {
+    mockCallAppsScript.mockResolvedValueOnce({
+      rows: [{ values: { phone: '+1', event: 'Gala', consent: 'true', sent_at: '' } }],
+    });
+
+    await invoke(makeContext(), { secret: 'shh', event: 'Gala' });
+
+    // The flow's Lookup_Contact widget reads this contact's row right at the
+    // start of every execution — if respondent_id were written after
+    // starting the execution instead, Lookup_Contact could race ahead and
+    // read a stale/missing value.
+    const upsertCalls = mockCallAppsScript.mock.calls.filter((c) => c[1] === 'upsert_contact');
+    expect(upsertCalls[0][2]).toEqual(expect.objectContaining({ phone: '+1', respondent_id: expect.any(String) }));
+    expect(upsertCalls[0][2]).not.toHaveProperty('sent_at');
+    expect(mockCallAppsScript.mock.invocationCallOrder[mockCallAppsScript.mock.calls.indexOf(upsertCalls[0])]).toBeLessThan(
+      mockExecutionsCreate.mock.invocationCallOrder[0]
+    );
+
+    expect(upsertCalls[1][2]).toEqual(expect.objectContaining({ phone: '+1', sent_at: expect.any(String) }));
+  });
+
+  it('does not mark a contact sent if starting their execution fails', async () => {
+    mockCallAppsScript.mockResolvedValueOnce({
+      rows: [{ values: { phone: '+1', event: 'Gala', consent: 'true', sent_at: '' } }],
+    });
+    mockExecutionsCreate.mockRejectedValueOnce(new Error('boom'));
+
+    await invoke(makeContext(), { secret: 'shh', event: 'Gala' });
+
+    const sentAtCalls = mockCallAppsScript.mock.calls.filter(
+      (c) => c[1] === 'upsert_contact' && 'sent_at' in c[2]
+    );
+    expect(sentAtCalls).toHaveLength(0);
   });
 
   it('collects per-contact failures without aborting the batch', async () => {

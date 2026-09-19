@@ -333,16 +333,17 @@ async function attachFlowToPhoneNumber(values, flowSid) {
 // webhook looks correct. Only runs if MESSAGING_SERVICE_SID is set; a no-op
 // otherwise, since not every number is in a Messaging Service.
 //
-// useInboundWebhookOnNumber is set to true (not false) so the Service
-// defers to the *number's own* webhook (already correctly set by
-// attachFlowToPhoneNumber) rather than routing inbound through the
-// Service's own URL. Confirmed live: routing inbound through the Service
-// itself requires starting Studio executions with the Messaging Service
-// SID as `from` (not the bare number) for Twilio to correlate a reply
-// back to the active execution — but that breaks trigger.parameters from
-// resolving at all in the started execution. Deferring to the number's
-// own webhook instead keeps both directions consistently anchored to the
-// same bare-number channel identity, avoiding that whole tradeoff.
+// useInboundWebhookOnNumber is false: inbound routes through the Service's
+// own URL (set below), not the number's own webhook. This must match
+// trigger-send.js's `from: MESSAGING_SERVICE_SID` — Twilio correlates a
+// reply back to the active execution based on matching channel identity, and
+// confirmed live (twice) that anchoring outbound to the bare number while
+// inbound routes through the Service (or vice versa) breaks that
+// correlation, causing every reply to start a brand-new execution instead of
+// continuing the conversation. (Using the Service SID as `from` separately
+// breaks {{trigger.parameters.*}} from resolving — worked around at the flow
+// level, in scripts/generate-studio-flow.js's Lookup_Contact widget, not by
+// changing this.)
 async function attachFlowToMessagingService(values, flowSid) {
   if (!values.MESSAGING_SERVICE_SID) return;
 
@@ -354,7 +355,7 @@ async function attachFlowToMessagingService(values, flowSid) {
   await client.messaging.v1.services(values.MESSAGING_SERVICE_SID).update({
     inboundRequestUrl: webhookUrl,
     inboundMethod: 'POST',
-    useInboundWebhookOnNumber: true,
+    useInboundWebhookOnNumber: false,
   });
   console.log(`Messaging Service ${values.MESSAGING_SERVICE_SID}'s inbound routing now points at Flow ${flowSid}.`);
 }
