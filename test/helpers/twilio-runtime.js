@@ -35,7 +35,6 @@ global.Twilio = { Response: FakeTwilioResponse };
 const FUNCTIONS = {
   'lib/apps-script-client': path.join(__dirname, '..', '..', 'functions', 'lib', 'apps-script-client.private.js'),
   'lib/contact-context': path.join(__dirname, '..', '..', 'functions', 'lib', 'contact-context.private.js'),
-  'lib/phone': path.join(__dirname, '..', '..', 'functions', 'lib', 'phone.private.js'),
   'lib/flow-steps': path.join(__dirname, '..', '..', 'functions', 'lib', 'flow-steps.private.js'),
   'save-response': path.join(__dirname, '..', '..', 'functions', 'save-response.js'),
 };

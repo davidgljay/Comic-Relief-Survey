@@ -59,10 +59,10 @@ describe('POST /trigger-send', () => {
   it('only starts executions for consenting, not-yet-sent contacts matching the event', async () => {
     mockCallAppsScript.mockResolvedValueOnce({
       rows: [
-        { values: { phone: '+15550000001', event: 'Gala', consent: 'true', sent_at: '' } },
-        { values: { phone: '+15550000002', event: 'Gala', consent: 'true', sent_at: '2026-01-01' } }, // already sent
-        { values: { phone: '+15550000003', event: 'Gala', consent: 'false', sent_at: '' } }, // no consent
-        { values: { phone: '+15550000004', event: 'OtherEvent', consent: 'true', sent_at: '' } }, // wrong event
+        { values: { phone: '+1', event: 'Gala', consent: 'true', sent_at: '' } },
+        { values: { phone: '+2', event: 'Gala', consent: 'true', sent_at: '2026-01-01' } }, // already sent
+        { values: { phone: '+3', event: 'Gala', consent: 'false', sent_at: '' } }, // no consent
+        { values: { phone: '+4', event: 'OtherEvent', consent: 'true', sent_at: '' } }, // wrong event
       ],
     });
 
@@ -72,19 +72,19 @@ describe('POST /trigger-send', () => {
     expect(response.body.started).toBe(1);
     expect(mockExecutionsCreate).toHaveBeenCalledTimes(1);
     expect(mockExecutionsCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ to: '+15550000001', from: '+15550000000' })
+      expect.objectContaining({ to: '+1', from: '+15550000000' })
     );
     // marks the contact as sent so a second call won't double-send
     expect(mockCallAppsScript).toHaveBeenCalledWith(
       expect.anything(),
       'upsert_contact',
-      expect.objectContaining({ phone: '+15550000001', sent_at: expect.any(String) })
+      expect.objectContaining({ phone: '+1', sent_at: expect.any(String) })
     );
   });
 
   it('starts executions from the Messaging Service, not the bare number, when one is configured', async () => {
     mockCallAppsScript.mockResolvedValueOnce({
-      rows: [{ values: { phone: '+15550000001', event: 'Gala', consent: 'true', sent_at: '' } }],
+      rows: [{ values: { phone: '+1', event: 'Gala', consent: 'true', sent_at: '' } }],
     });
 
     await invoke(makeContext({ MESSAGING_SERVICE_SID: 'MGxxxx' }), { secret: 'shh', event: 'Gala' });
@@ -97,12 +97,12 @@ describe('POST /trigger-send', () => {
     // matching (confirmed live, twice). This does break
     // {{trigger.parameters.*}} in the started execution — worked around at
     // the flow level (Lookup_Contact) instead, not by changing `from`.
-    expect(mockExecutionsCreate).toHaveBeenCalledWith(expect.objectContaining({ to: '+15550000001', from: 'MGxxxx' }));
+    expect(mockExecutionsCreate).toHaveBeenCalledWith(expect.objectContaining({ to: '+1', from: 'MGxxxx' }));
   });
 
   it('writes respondent_id to the Contacts sheet before starting the execution, not after', async () => {
     mockCallAppsScript.mockResolvedValueOnce({
-      rows: [{ values: { phone: '+15550000001', event: 'Gala', consent: 'true', sent_at: '' } }],
+      rows: [{ values: { phone: '+1', event: 'Gala', consent: 'true', sent_at: '' } }],
     });
 
     await invoke(makeContext(), { secret: 'shh', event: 'Gala' });
@@ -112,13 +112,13 @@ describe('POST /trigger-send', () => {
     // starting the execution instead, Lookup_Contact could race ahead and
     // read a stale/missing value.
     const upsertCalls = mockCallAppsScript.mock.calls.filter((c) => c[1] === 'upsert_contact');
-    expect(upsertCalls[0][2]).toEqual(expect.objectContaining({ phone: '+15550000001', respondent_id: expect.any(String) }));
+    expect(upsertCalls[0][2]).toEqual(expect.objectContaining({ phone: '+1', respondent_id: expect.any(String) }));
     expect(upsertCalls[0][2]).not.toHaveProperty('sent_at');
     expect(mockCallAppsScript.mock.invocationCallOrder[mockCallAppsScript.mock.calls.indexOf(upsertCalls[0])]).toBeLessThan(
       mockExecutionsCreate.mock.invocationCallOrder[0]
     );
 
-    expect(upsertCalls[1][2]).toEqual(expect.objectContaining({ phone: '+15550000001', sent_at: expect.any(String) }));
+    expect(upsertCalls[1][2]).toEqual(expect.objectContaining({ phone: '+1', sent_at: expect.any(String) }));
   });
 
   it('starts every pending contact when there are more than one batch of them', async () => {
@@ -167,37 +167,21 @@ describe('POST /trigger-send', () => {
     expect(upserts.map((c) => c[2].phone)).toEqual([stored, stored]);
   });
 
-  it('sends any common phone format to Twilio as E.164, and fails a number it cannot read', async () => {
-    mockCallAppsScript.mockResolvedValueOnce({
-      rows: [
-        { values: { phone: '(314) 210-7659', event: 'Gala', consent: 'true', sent_at: '' } },
-        { values: { phone: '314.555.0101', event: 'Gala', consent: 'true', sent_at: '' } },
-        { values: { phone: '12345', event: 'Gala', consent: 'true', sent_at: '' } },
-      ],
-    });
-
-    const response = await invoke(makeContext(), { secret: 'shh', event: 'Gala' });
-
-    expect(mockExecutionsCreate.mock.calls.map((c) => c[0].to).sort()).toEqual(['+13142107659', '+13145550101']);
-    expect(response.body.failed).toEqual(['12345']);
-    expect(response.body.errors[0].error).toMatch(/not a valid phone number/);
-  });
-
   it('reports why a contact failed, not just which one', async () => {
     mockCallAppsScript.mockResolvedValueOnce({
-      rows: [{ values: { phone: '+15550000001', event: 'Gala', consent: 'true', sent_at: '' } }],
+      rows: [{ values: { phone: '+1', event: 'Gala', consent: 'true', sent_at: '' } }],
     });
     mockExecutionsCreate.mockRejectedValueOnce(new Error("The 'To' number +1 is not a valid phone number"));
 
     const response = await invoke(makeContext(), { secret: 'shh', event: 'Gala' });
 
-    expect(response.body.failed).toEqual(['+15550000001']);
-    expect(response.body.errors).toEqual([{ phone: '+15550000001', error: "The 'To' number +1 is not a valid phone number" }]);
+    expect(response.body.failed).toEqual(['+1']);
+    expect(response.body.errors).toEqual([{ phone: '+1', error: "The 'To' number +1 is not a valid phone number" }]);
   });
 
   it('does not mark a contact sent if starting their execution fails', async () => {
     mockCallAppsScript.mockResolvedValueOnce({
-      rows: [{ values: { phone: '+15550000001', event: 'Gala', consent: 'true', sent_at: '' } }],
+      rows: [{ values: { phone: '+1', event: 'Gala', consent: 'true', sent_at: '' } }],
     });
     mockExecutionsCreate.mockRejectedValueOnce(new Error('boom'));
 
@@ -212,8 +196,8 @@ describe('POST /trigger-send', () => {
   it('collects per-contact failures without aborting the batch', async () => {
     mockCallAppsScript.mockResolvedValueOnce({
       rows: [
-        { values: { phone: '+15550000001', event: 'Gala', consent: 'true', sent_at: '' } },
-        { values: { phone: '+15550000002', event: 'Gala', consent: 'true', sent_at: '' } },
+        { values: { phone: '+1', event: 'Gala', consent: 'true', sent_at: '' } },
+        { values: { phone: '+2', event: 'Gala', consent: 'true', sent_at: '' } },
       ],
     });
     mockExecutionsCreate
@@ -223,7 +207,7 @@ describe('POST /trigger-send', () => {
     const response = await invoke(makeContext(), { secret: 'shh', event: 'Gala' });
 
     expect(response.body.started).toBe(1);
-    expect(response.body.failed).toEqual(['+15550000002']);
+    expect(response.body.failed).toEqual(['+2']);
   });
 
   it('returns 500 if the contacts sheet cannot be read', async () => {

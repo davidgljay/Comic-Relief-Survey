@@ -111,21 +111,6 @@ describe('resolveContactContext', () => {
       expect((await resolveContactContext(context, '+15557778888')).name).toBe('Lin');
     });
 
-    it('finds a contact stored as "(314) 210-7659" (no country code) from Twilio\'s +13142107659', async () => {
-      mockCallAppsScript.mockResolvedValue(
-        sheet({ phone: '(314) 210-7659', event: 'fall-gala-2026', name: 'Ada', respondent_id: 'uuid-existing' })
-      );
-
-      const result = await resolveContactContext(context, '+13142107659');
-
-      expect(result).toEqual({
-        phone: '(314) 210-7659',
-        event: 'fall-gala-2026',
-        name: 'Ada',
-        respondentId: 'uuid-existing',
-      });
-    });
-
     it('prefers the duplicate row that already has a respondent_id', async () => {
       mockCallAppsScript.mockResolvedValue(
         sheet(

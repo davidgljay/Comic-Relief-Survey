@@ -13,11 +13,12 @@
 // Gated by the same shared secret as /trigger-send (TRIGGER_SEND_SECRET) —
 // this can write real rows into both Sheets, so it's not something to leave
 // open to anyone who finds the URL.
+const E164 = /^\+[1-9]\d{1,14}$/;
+
 exports.handler = async function (context, event, callback) {
   const { resolveContactContext } = require(Runtime.getFunctions()['lib/contact-context'].path);
   const { handler: saveResponseHandler } = require(Runtime.getFunctions()['save-response'].path);
   const { nextMessage } = require(Runtime.getFunctions()['lib/flow-steps'].path);
-  const { normalizePhone } = require(Runtime.getFunctions()['lib/phone'].path);
 
   const response = new Twilio.Response();
   response.appendHeader('Content-Type', 'text/plain');
@@ -28,13 +29,12 @@ exports.handler = async function (context, event, callback) {
     return callback(null, response);
   }
 
-  const { answer } = event;
-  const number = normalizePhone(event.number);
+  const { number, answer } = event;
   const question = Number(event.question);
 
-  if (!number) {
+  if (!number || !E164.test(number)) {
     response.setStatusCode(400);
-    response.setBody('number is required and must be a valid phone number, e.g. (555) 123-4567 or +15551234567');
+    response.setBody('number is required and must be E.164, e.g. +15551234567');
     return callback(null, response);
   }
   if (!Number.isInteger(question) || question < 1 || question > 5) {

@@ -4,6 +4,7 @@
 // a "csv" field. Required columns: phone, name, event, consent. Optional: email, registered_at.
 const { parse } = require('csv-parse/sync');
 
+const E164 = /^\+[1-9]\d{1,14}$/;
 
 exports.handler = async function (context, event, callback) {
   // Required inside the handler, not at module top level — see the comment
@@ -11,7 +12,6 @@ exports.handler = async function (context, event, callback) {
   // once actually deployed (works fine locally, which is why this was easy
   // to miss until a real deploy hit it).
   const { callAppsScript } = require(Runtime.getFunctions()['lib/apps-script-client'].path);
-  const { normalizePhone } = require(Runtime.getFunctions()['lib/phone'].path);
 
   const response = new Twilio.Response();
   response.appendHeader('Content-Type', 'application/json');
@@ -40,9 +40,9 @@ exports.handler = async function (context, event, callback) {
   const results = { added: 0, skipped: [] };
 
   for (const [i, row] of records.entries()) {
-    const phone = normalizePhone(row.phone);
+    const phone = row.phone;
     const consentGiven = row.consent === 'true' || row.consent === '1' || row.consent === 'TRUE';
-    if (!phone || !row.name || !row.event || !consentGiven) {
+    if (!phone || !E164.test(phone) || !row.name || !row.event || !consentGiven) {
       results.skipped.push({ row: i + 2, reason: 'missing/invalid phone, name, event, or consent' });
       continue;
     }

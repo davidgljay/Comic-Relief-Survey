@@ -1,25 +1,23 @@
 // POST /contacts
 // Adds (or updates) a single consenting contact, collected at event registration.
-// Body (JSON or form-encoded): phone (any common format — stored as E.164), name, email (optional), consent, event, registered_at (optional)
+// Body (JSON or form-encoded): phone, name, email (optional), consent, event, registered_at (optional)
+const E164 = /^\+[1-9]\d{1,14}$/;
+
 exports.handler = async function (context, event, callback) {
   // Required inside the handler, not at module top level — see the comment
   // in functions/save-response.js for why a plain relative require breaks
   // once actually deployed (works fine locally, which is why this was easy
   // to miss until a real deploy hit it).
   const { callAppsScript } = require(Runtime.getFunctions()['lib/apps-script-client'].path);
-  const { normalizePhone } = require(Runtime.getFunctions()['lib/phone'].path);
 
   const response = new Twilio.Response();
   response.appendHeader('Content-Type', 'application/json');
 
-  const { name, email, consent, event: eventName, registered_at } = event;
-  const phone = normalizePhone(event.phone);
+  const { phone, name, email, consent, event: eventName, registered_at } = event;
 
-  if (!phone) {
+  if (!phone || !E164.test(phone)) {
     response.setStatusCode(400);
-    response.setBody({
-      error: 'phone is required and must be a valid number, e.g. (555) 123-4567 or +15551234567 (include the + and country code outside the US/Canada)',
-    });
+    response.setBody({ error: 'phone is required and must be in E.164 format, e.g. +15551234567' });
     return callback(null, response);
   }
   if (!name || !eventName) {

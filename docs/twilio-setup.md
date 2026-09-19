@@ -186,12 +186,8 @@ analysis — see handoff, §8.
 ## 4. Collecting contacts
 
 - Single contact: `POST /contacts` with JSON `{ phone, name, email, consent, event,
-  registered_at }`. `phone` can be in any common format — `(314) 210-7659`,
-  `314.210.7659`, `1-314-210-7659`, `+1 314 210 7659`, even with invisible characters
-  pasted in from a contacts app — and is stored as E.164 (`+13142107659`). Ten digits
-  (or eleven with a leading 1) are read as US/Canada; a number from anywhere else must
-  include its `+` and country code. Anything that can't be read as a real number is
-  rejected. `consent` must be explicitly true; requests missing either are rejected.
+  registered_at }`. `phone` must be E.164 (`+15551234567`); `consent` must be explicitly
+  true; requests missing either are rejected.
 - Bulk import: `POST /contacts-csv` with a CSV body (columns: `phone, name, email,
   consent, event, registered_at`) either as a `csv` form field or a `file` upload. Rows
   missing phone/name/event/consent are skipped and reported back, not silently dropped.
@@ -232,7 +228,7 @@ curl -X POST "https://<deployed-domain>.twil.io/simulate-response?secret=$TRIGGE
   --data-urlencode "answer=1 - I really enjoyed the event!"
 ```
 
-(`number` can be in any common format, same as `/contacts`; `question` is 1–5; `answer` is whatever you want that
+(`number` must be E.164; `question` is 1–5; `answer` is whatever you want that
 question's reply to be — free text is fine, same as a real reply.)
 
 This **actually saves the answer for real** — same code path, same Sheets, same
@@ -291,7 +287,7 @@ into both Sheets, so don't leave the URL somewhere it could be hit by anyone els
   - If the lookup itself fails for any reason, it degrades to the "unknown" case
     rather than blocking the conversation.
 
-  **Phone numbers are matched as numbers, not as exact text.** A number typed or
+  **Phone numbers are matched by digits only, not as exact text.** A number typed or
   pasted into the sheet by hand often differs from what Twilio reports for the same
   contact — invisible Unicode direction marks copied from a phone's contacts app, a
   dropped leading `+` (Sheets turns a numeric-looking cell into a number), spaces or
@@ -299,10 +295,8 @@ into both Sheets, so don't leave the URL somewhere it could be hit by anyone els
   their answers on a brand-new row. The lookup reads the Contacts sheet (the existing
   `list_rows` action — no special `Code.gs` support needed), finds the row by digits,
   and the flow saves under that row's own stored phone string so the answers land on
-  the original row. Numbers are compared as normalized E.164, so a sheet cell holding
-  `(314) 210-7659`, `3142107659` or `1-314-210-7659` all match Twilio's `+13142107659`.
-  `trigger-send` reads the same formats too, sending Twilio the normalized number and
-  reporting any number it can't read under `errors`.
+  the original row. (The country code still has to be there: `+1 555…` matches
+  `15555…`, but a bare 10-digit `555…` does not.)
 
   **Decide before a number goes live for a real campaign** whether to leave
   text-in-starts on at all (harmless either way — unregistered numbers just produce

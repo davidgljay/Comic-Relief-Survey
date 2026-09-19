@@ -59,16 +59,6 @@ describe('POST /contacts-csv', () => {
     );
   });
 
-  it('accepts phones in any common format and stores them as E.164', async () => {
-    const csv = 'phone,name,event,consent\n"(555) 111-2222",Ada,Gala,true\n555.333.4444,Grace,Gala,true\n';
-
-    const response = await invoke({ csv });
-
-    expect(response.body.added).toBe(2);
-    const phones = mockCallAppsScript.mock.calls.map((c) => c[2].phone);
-    expect(phones).toEqual(['+15551112222', '+15553334444']);
-  });
-
   it('accepts CSV supplied via a file upload buffer', async () => {
     const csv = 'phone,name,event,consent\n+15551112222,Ada,Gala,true\n';
     const response = await invoke({ file: Buffer.from(csv, 'utf8') });

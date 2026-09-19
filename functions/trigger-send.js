@@ -14,13 +14,21 @@ const crypto = require('crypto');
 
 const BATCH_SIZE = 10;
 
+// What Twilio should be given as the recipient: "+" and digits only. A phone
+// typed or pasted into the sheet by hand can carry invisible Unicode direction
+// marks (copied from a contacts app), spaces or dashes, which Twilio rejects
+// as an invalid number. The sheet's own string is still what the sheet writes
+// key on, so the row is found again exactly as stored.
+function toE164(phone) {
+  return `+${String(phone).replace(/\D/g, '')}`;
+}
+
 exports.handler = async function (context, event, callback) {
   // Required inside the handler, not at module top level — see the comment
   // in functions/save-response.js for why a plain relative require breaks
   // once actually deployed (works fine locally, which is why this was easy
   // to miss until a real deploy hit it).
   const { callAppsScript } = require(Runtime.getFunctions()['lib/apps-script-client'].path);
-  const { normalizePhone } = require(Runtime.getFunctions()['lib/phone'].path);
 
   const response = new Twilio.Response();
   response.appendHeader('Content-Type', 'application/json');
@@ -72,13 +80,6 @@ exports.handler = async function (context, event, callback) {
   const startOne = async (row) => {
     const respondentId = crypto.randomUUID();
     try {
-      // Twilio gets the number in E.164, whatever form the sheet holds it in
-      // ("(314) 210-7659", invisible direction marks pasted from a contacts
-      // app, ...). The sheet writes below still key on the sheet's own string
-      // so the row is found exactly as stored.
-      const to = normalizePhone(row.values.phone);
-      if (!to) throw new Error(`"${row.values.phone}" is not a valid phone number`);
-
       // Written *before* starting the execution, not after: the flow's
       // Lookup_Contact widget (see scripts/generate-studio-flow.js) reads
       // this contact's row right at the start of every execution, REST-
@@ -94,7 +95,7 @@ exports.handler = async function (context, event, callback) {
       await client.studio.v2
         .flows(context.STUDIO_FLOW_SID)
         .executions.create({
-          to,
+          to: toE164(row.values.phone),
           // If the number is in a Messaging Service, its inbound routing is
           // delegated there (see attachFlowToMessagingService in
           // scripts/deploy.js), which scopes the reply to the Messaging
