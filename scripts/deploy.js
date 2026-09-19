@@ -332,6 +332,17 @@ async function attachFlowToPhoneNumber(values, flowSid) {
 // without this, replies never reach the flow even though the number-level
 // webhook looks correct. Only runs if MESSAGING_SERVICE_SID is set; a no-op
 // otherwise, since not every number is in a Messaging Service.
+//
+// useInboundWebhookOnNumber is set to true (not false) so the Service
+// defers to the *number's own* webhook (already correctly set by
+// attachFlowToPhoneNumber) rather than routing inbound through the
+// Service's own URL. Confirmed live: routing inbound through the Service
+// itself requires starting Studio executions with the Messaging Service
+// SID as `from` (not the bare number) for Twilio to correlate a reply
+// back to the active execution — but that breaks trigger.parameters from
+// resolving at all in the started execution. Deferring to the number's
+// own webhook instead keeps both directions consistently anchored to the
+// same bare-number channel identity, avoiding that whole tradeoff.
 async function attachFlowToMessagingService(values, flowSid) {
   if (!values.MESSAGING_SERVICE_SID) return;
 
@@ -343,7 +354,7 @@ async function attachFlowToMessagingService(values, flowSid) {
   await client.messaging.v1.services(values.MESSAGING_SERVICE_SID).update({
     inboundRequestUrl: webhookUrl,
     inboundMethod: 'POST',
-    useInboundWebhookOnNumber: false,
+    useInboundWebhookOnNumber: true,
   });
   console.log(`Messaging Service ${values.MESSAGING_SERVICE_SID}'s inbound routing now points at Flow ${flowSid}.`);
 }
