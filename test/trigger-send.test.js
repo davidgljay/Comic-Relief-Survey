@@ -82,20 +82,20 @@ describe('POST /trigger-send', () => {
     );
   });
 
-  it('starts executions from the Messaging Service, not the bare number, when one is configured', async () => {
+  it('always starts executions from the bare phone number, even when a Messaging Service is configured', async () => {
     mockCallAppsScript.mockResolvedValueOnce({
       rows: [{ values: { phone: '+1', event: 'Gala', consent: 'true', sent_at: '' } }],
     });
 
     await invoke(makeContext({ MESSAGING_SERVICE_SID: 'MGxxxx' }), { secret: 'shh', event: 'Gala' });
 
-    // Inbound routing for a number in a Messaging Service is delegated to the
-    // service (see attachFlowToMessagingService in scripts/deploy.js), which
-    // scopes replies to the service's channel identity — starting the
-    // execution with the bare number instead would anchor it to a different
-    // channel, breaking Twilio's "route this reply to the active execution"
-    // matching. See functions/trigger-send.js for the full explanation.
-    expect(mockExecutionsCreate).toHaveBeenCalledWith(expect.objectContaining({ to: '+1', from: 'MGxxxx' }));
+    // Confirmed live: using the Messaging Service SID as `from` here broke
+    // trigger.parameters from resolving at all in the started execution
+    // (blank {{trigger.parameters.name}}, save-response rejecting every call
+    // as missing respondent_id/phone/event). The Messaging Service's own
+    // inbound webhook attach (scripts/deploy.js) is sufficient on its own to
+    // fix reply routing, so this stays on the bare number regardless.
+    expect(mockExecutionsCreate).toHaveBeenCalledWith(expect.objectContaining({ to: '+1', from: '+15550000000' }));
   });
 
   it('collects per-contact failures without aborting the batch', async () => {

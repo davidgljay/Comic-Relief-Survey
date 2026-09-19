@@ -53,16 +53,15 @@ exports.handler = async function (context, event, callback) {
         .flows(context.STUDIO_FLOW_SID)
         .executions.create({
           to: row.values.phone,
-          // If the number is in a Messaging Service, its inbound routing is
-          // delegated there (see attachFlowToMessagingService in
-          // scripts/deploy.js), which scopes the reply to the Messaging
-          // Service's own channel identity. Starting the execution with the
-          // bare phone number as `from` instead anchors it to a *different*
-          // channel identity, so Twilio can't correlate a reply back to this
-          // execution and starts a brand-new one per reply instead of
-          // continuing the conversation. Using the same Messaging Service SID
-          // here keeps both directions on the same channel identity.
-          from: context.MESSAGING_SERVICE_SID || context.TWILIO_PHONE_NUMBER,
+          // Tried using MESSAGING_SERVICE_SID here to align channel identity
+          // with attachFlowToMessagingService's inbound routing (see git
+          // history) — confirmed live that it broke trigger.parameters from
+          // resolving at all (a blank {{trigger.parameters.name}} in the
+          // greeting, and save-response rejecting every call as missing
+          // respondent_id/phone/event), while the Messaging Service's inbound
+          // webhook attach alone was already sufficient to fix reply routing.
+          // Back to the bare phone number.
+          from: context.TWILIO_PHONE_NUMBER,
           parameters: JSON.stringify({
             phone: row.values.phone,
             name: row.values.name,
